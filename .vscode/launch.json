@@ -1,0 +1,10 @@
+{
+  "configurations": [
+    {
+      "name": "goldenyolk (Flutter)",
+      "program": "lib/main.dart",
+      "request": "launch",
+      "type": "dart"
+    }
+  ]
+}

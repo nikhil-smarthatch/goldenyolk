@@ -1,0 +1,53 @@
+name: poultrypro
+description: A comprehensive poultry farm management application
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Database & Storage
+  sqflite: ^2.3.0
+  path_provider: ^2.1.1
+  path: ^1.8.3
+  shared_preferences: ^2.2.2
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  
+  # Charts & Visualization
+  fl_chart: ^0.66.0
+  
+  # Date & Formatting
+  intl: ^0.18.1
+  
+  # PDF & Export
+  pdf: ^3.10.7
+  printing: ^5.11.1
+  csv: ^5.1.1
+  share_plus: ^7.2.1
+  
+  # File Picker for Import/Backup
+  file_picker: ^8.0.0
+  
+  # UI Components
+  shimmer: ^3.0.0
+  flutter_slidable: ^3.0.1
+  
+  # Icons
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
