@@ -13,7 +13,8 @@ class AddChickenSaleScreen extends ConsumerStatefulWidget {
   const AddChickenSaleScreen({super.key, this.sale});
 
   @override
-  ConsumerState<AddChickenSaleScreen> createState() => _AddChickenSaleScreenState();
+  ConsumerState<AddChickenSaleScreen> createState() =>
+      _AddChickenSaleScreenState();
 }
 
 class _AddChickenSaleScreenState extends ConsumerState<AddChickenSaleScreen> {
@@ -63,11 +64,11 @@ class _AddChickenSaleScreenState extends ConsumerState<AddChickenSaleScreen> {
         date: _date,
         quantity: int.parse(_quantityController.text.trim()),
         pricePerBird: double.parse(_priceController.text.trim()),
-        buyer: _buyerController.text.trim().isEmpty 
-            ? null 
+        buyer: _buyerController.text.trim().isEmpty
+            ? null
             : _buyerController.text.trim(),
-        notes: _notesController.text.trim().isEmpty 
-            ? null 
+        notes: _notesController.text.trim().isEmpty
+            ? null
             : _notesController.text.trim(),
       );
 
@@ -80,9 +81,10 @@ class _AddChickenSaleScreenState extends ConsumerState<AddChickenSaleScreen> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(widget.sale != null 
-              ? 'Sale updated' 
-              : 'Chicken sale recorded')),
+          SnackBar(
+              content: Text(widget.sale != null
+                  ? 'Sale updated'
+                  : 'Chicken sale recorded')),
         );
       }
     } catch (e) {
@@ -161,7 +163,8 @@ class _AddChickenSaleScreenState extends ConsumerState<AddChickenSaleScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _priceController,
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: 'Price per Bird',
                         hintText: '0.00',
@@ -188,11 +191,12 @@ class _AddChickenSaleScreenState extends ConsumerState<AddChickenSaleScreen> {
                         style: TextStyle(fontWeight: FontWeight.w500),
                       ),
                       Text(
-                        CurrencyFormatter.format(_totalAmount, symbol: settings.currencySymbol),
+                        CurrencyFormatter.format(_totalAmount,
+                            symbol: settings.currencySymbol),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                       ),
                     ],
                   ),
@@ -217,7 +221,9 @@ class _AddChickenSaleScreenState extends ConsumerState<AddChickenSaleScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.save),
-                label: Text(_isLoading ? 'Saving...' : (isEditing ? 'Update Sale' : 'Record Sale')),
+                label: Text(_isLoading
+                    ? 'Saving...'
+                    : (isEditing ? 'Update Sale' : 'Record Sale')),
               ),
             ],
           ),
@@ -243,7 +249,8 @@ class _AddChickenSaleScreenState extends ConsumerState<AddChickenSaleScreen> {
                 Expanded(
                   child: Text(
                     'No flocks available. Please add a flock first.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ),
               ],

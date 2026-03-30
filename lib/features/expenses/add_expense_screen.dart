@@ -58,8 +58,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         category: _category,
         description: _descriptionController.text.trim(),
         amount: double.parse(_amountController.text.trim()),
-        notes: _notesController.text.trim().isEmpty 
-            ? null 
+        notes: _notesController.text.trim().isEmpty
+            ? null
             : _notesController.text.trim(),
       );
 
@@ -128,7 +128,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   hintText: 'What was this expense for?',
                   prefixIcon: Icon(Icons.description),
                 ),
-                validator: (value) => Validators.required(value, fieldName: 'Description'),
+                validator: (value) =>
+                    Validators.required(value, fieldName: 'Description'),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -140,7 +141,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   prefixIcon: const Icon(Icons.attach_money),
                   prefixText: '${settings.currencySymbol} ',
                 ),
-                validator: (value) => Validators.positiveDouble(value, fieldName: 'Amount'),
+                validator: (value) =>
+                    Validators.positiveDouble(value, fieldName: 'Amount'),
               ),
               const SizedBox(height: 16),
               TextFormField(

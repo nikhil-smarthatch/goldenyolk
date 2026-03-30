@@ -48,26 +48,34 @@ class EggSaleDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      CurrencyFormatter.format(sale.totalAmount, symbol: settings.currencySymbol),
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      CurrencyFormatter.format(sale.totalAmount,
+                          symbol: settings.currencySymbol),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Total Amount',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
                     const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: sale.isPaid ? AppColors.success.withValues(alpha: 0.1) : AppColors.warning.withValues(alpha: 0.1),
+                        color: sale.isPaid
+                            ? AppColors.success.withValues(alpha: 0.1)
+                            : AppColors.warning.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: sale.isPaid ? AppColors.success : AppColors.warning,
+                          color: sale.isPaid
+                              ? AppColors.success
+                              : AppColors.warning,
                         ),
                       ),
                       child: Row(
@@ -75,7 +83,9 @@ class EggSaleDetailScreen extends ConsumerWidget {
                         children: [
                           Icon(
                             sale.isPaid ? Icons.check_circle : Icons.schedule,
-                            color: sale.isPaid ? AppColors.success : AppColors.warning,
+                            color: sale.isPaid
+                                ? AppColors.success
+                                : AppColors.warning,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -83,7 +93,9 @@ class EggSaleDetailScreen extends ConsumerWidget {
                             sale.paymentStatus.toUpperCase(),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: sale.isPaid ? AppColors.success : AppColors.warning,
+                              color: sale.isPaid
+                                  ? AppColors.success
+                                  : AppColors.warning,
                             ),
                           ),
                         ],
@@ -99,27 +111,38 @@ class EggSaleDetailScreen extends ConsumerWidget {
             Text(
               'Order Details',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 16),
 
             _buildDetailRow(context, 'Order ID', '#${sale.id ?? 'N/A'}'),
-            _buildDetailRow(context, 'Date', DateHelpers.formatDateTime(sale.date)),
+            _buildDetailRow(
+                context, 'Date', DateHelpers.formatDateTime(sale.date)),
             _buildDetailRow(context, 'Buyer', sale.buyer ?? 'Not specified'),
             _buildDetailRow(context, 'Quantity', '${sale.quantity} eggs'),
-            _buildDetailRow(context, 'Price per Egg', CurrencyFormatter.format(sale.pricePerUnit, symbol: settings.currencySymbol)),
-            _buildDetailRow(context, 'Total', CurrencyFormatter.format(sale.totalAmount, symbol: settings.currencySymbol), isBold: true),
+            _buildDetailRow(
+                context,
+                'Price per Egg',
+                CurrencyFormatter.format(sale.pricePerUnit,
+                    symbol: settings.currencySymbol)),
+            _buildDetailRow(
+                context,
+                'Total',
+                CurrencyFormatter.format(sale.totalAmount,
+                    symbol: settings.currencySymbol),
+                isBold: true),
             _buildDetailRow(context, 'Payment Status', sale.paymentStatus),
-            _buildDetailRow(context, 'Created', DateHelpers.formatDateTime(sale.createdAt)),
+            _buildDetailRow(
+                context, 'Created', DateHelpers.formatDateTime(sale.createdAt)),
 
             if (sale.notes != null && sale.notes!.isNotEmpty) ...[
               const SizedBox(height: 24),
               Text(
                 'Notes',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 8),
               Container(
@@ -142,11 +165,14 @@ class EggSaleDetailScreen extends ConsumerWidget {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: () async {
-                        await ref.read(eggSalesProvider.notifier).markAsPaid(sale.id!);
+                        await ref
+                            .read(eggSalesProvider.notifier)
+                            .markAsPaid(sale.id!);
                         if (context.mounted) {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Payment marked as paid')),
+                            const SnackBar(
+                                content: Text('Payment marked as paid')),
                           );
                         }
                       },
@@ -179,7 +205,8 @@ class EggSaleDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, String label, String value, {bool isBold = false}) {
+  Widget _buildDetailRow(BuildContext context, String label, String value,
+      {bool isBold = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -190,16 +217,16 @@ class EggSaleDetailScreen extends ConsumerWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
             ),
           ),
           Expanded(
             child: Text(
               value,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              ),
+                    fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                  ),
             ),
           ),
         ],

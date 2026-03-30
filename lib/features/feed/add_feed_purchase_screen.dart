@@ -11,7 +11,8 @@ class AddFeedPurchaseScreen extends ConsumerStatefulWidget {
   const AddFeedPurchaseScreen({super.key});
 
   @override
-  ConsumerState<AddFeedPurchaseScreen> createState() => _AddFeedPurchaseScreenState();
+  ConsumerState<AddFeedPurchaseScreen> createState() =>
+      _AddFeedPurchaseScreenState();
 }
 
 class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
@@ -55,11 +56,11 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
         feedType: _feedType,
         quantityKg: double.parse(_quantityController.text.trim()),
         pricePerUnit: double.parse(_priceController.text.trim()),
-        supplier: _supplierController.text.trim().isEmpty 
-            ? null 
+        supplier: _supplierController.text.trim().isEmpty
+            ? null
             : _supplierController.text.trim(),
-        notes: _notesController.text.trim().isEmpty 
-            ? null 
+        notes: _notesController.text.trim().isEmpty
+            ? null
             : _notesController.text.trim(),
       );
 
@@ -129,7 +130,8 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
                     flex: 2,
                     child: TextFormField(
                       controller: _quantityController,
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
                         labelText: 'Quantity',
                         hintText: 'kg or bags',
@@ -148,7 +150,8 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
                     flex: 2,
                     child: TextFormField(
                       controller: _priceController,
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: 'Price per kg',
                         hintText: '0.00',
@@ -175,11 +178,12 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
                         style: TextStyle(fontWeight: FontWeight.w500),
                       ),
                       Text(
-                        CurrencyFormatter.format(_totalCost, symbol: settings.currencySymbol),
+                        CurrencyFormatter.format(_totalCost,
+                            symbol: settings.currencySymbol),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                       ),
                     ],
                   ),
@@ -216,15 +220,15 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
   Widget _buildFeedTypeSelector() {
     final settings = ref.watch(settingsProvider);
     final feedTypes = settings.feedTypes;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Feed Type',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -235,16 +239,24 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
             final color = _getFeedTypeColor(type);
 
             return Material(
-              color: isSelected ? color.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface,
+              color: isSelected
+                  ? color.withValues(alpha: 0.1)
+                  : Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () => setState(() => _feedType = type),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: isSelected ? color : Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                      color: isSelected
+                          ? color
+                          : Theme.of(context)
+                              .colorScheme
+                              .outline
+                              .withValues(alpha: 0.3),
                       width: isSelected ? 2 : 1,
                     ),
                     borderRadius: BorderRadius.circular(12),
@@ -253,8 +265,11 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
                     type.toUpperCase(),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: isSelected ? color : Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected
+                          ? color
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                       fontSize: 12,
                     ),
                   ),

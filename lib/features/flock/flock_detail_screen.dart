@@ -95,7 +95,8 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
@@ -135,8 +136,8 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
                       context,
                       'Current Alive',
                       NumberFormatter.format(count),
-                      count < flock.initialCount * 0.9 
-                          ? Colors.orange 
+                      count < flock.initialCount * 0.9
+                          ? Colors.orange
                           : Colors.green,
                     ),
                     loading: () => const LoadingShimmer(height: 70),
@@ -173,8 +174,8 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
               Text(
                 'Notes',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 4),
               Text(flock.notes!),
@@ -205,7 +206,8 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
     );
   }
 
-  Widget _buildStatBox(BuildContext context, String label, String value, Color color) {
+  Widget _buildStatBox(
+      BuildContext context, String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -217,9 +219,9 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
           Text(
             value,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -245,8 +247,8 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
         Text(
           'Mortality History',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+                fontWeight: FontWeight.bold,
+              ),
         ),
         const SizedBox(height: 12),
         mortalityAsync.when(
@@ -298,11 +300,13 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
     );
   }
 
-  Widget _buildMortalityCard(BuildContext context, MortalityLog mortality, Flock flock) {
+  Widget _buildMortalityCard(
+      BuildContext context, MortalityLog mortality, Flock flock) {
     return SwipeableListItem(
       onEdit: () => _showEditMortalityDialog(context, mortality, flock),
       onDelete: () async {
-        await ref.read(mortalityByFlockProvider(flock.id!).notifier)
+        await ref
+            .read(mortalityByFlockProvider(flock.id!).notifier)
             .deleteMortality(mortality.id!);
       },
       confirmDeleteMessage: 'Delete this mortality record?',
@@ -317,7 +321,7 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
           subtitle: Text(DateHelpers.formatDate(mortality.date)),
-          trailing: mortality.notes != null 
+          trailing: mortality.notes != null
               ? const Icon(Icons.notes, size: 16)
               : null,
         ),
@@ -333,7 +337,8 @@ class _FlockDetailScreenState extends ConsumerState<FlockDetailScreen> {
     );
   }
 
-  void _showEditMortalityDialog(BuildContext context, MortalityLog mortality, Flock flock) {
+  void _showEditMortalityDialog(
+      BuildContext context, MortalityLog mortality, Flock flock) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -363,7 +368,13 @@ class _MortalityFormState extends ConsumerState<_MortalityForm> {
   late String _reason;
   bool _isLoading = false;
 
-  final List<String> _reasons = ['Disease', 'Accident', 'Predator', 'Unknown', 'Other'];
+  final List<String> _reasons = [
+    'Disease',
+    'Accident',
+    'Predator',
+    'Unknown',
+    'Other'
+  ];
 
   @override
   void initState() {
@@ -396,16 +407,18 @@ class _MortalityFormState extends ConsumerState<_MortalityForm> {
         date: _date,
         count: int.parse(_countController.text.trim()),
         reason: _reason,
-        notes: _notesController.text.trim().isEmpty 
-            ? null 
+        notes: _notesController.text.trim().isEmpty
+            ? null
             : _notesController.text.trim(),
       );
 
       if (widget.mortality == null) {
-        await ref.read(mortalityByFlockProvider(widget.flockId).notifier)
+        await ref
+            .read(mortalityByFlockProvider(widget.flockId).notifier)
             .addMortality(mortality);
       } else {
-        await ref.read(mortalityByFlockProvider(widget.flockId).notifier)
+        await ref
+            .read(mortalityByFlockProvider(widget.flockId).notifier)
             .updateMortality(mortality);
       }
 
@@ -413,8 +426,8 @@ class _MortalityFormState extends ConsumerState<_MortalityForm> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.mortality == null 
-                ? 'Mortality recorded' 
+            content: Text(widget.mortality == null
+                ? 'Mortality recorded'
                 : 'Mortality updated'),
           ),
         );
@@ -447,7 +460,9 @@ class _MortalityFormState extends ConsumerState<_MortalityForm> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                widget.mortality == null ? 'Record Mortality' : 'Edit Mortality',
+                widget.mortality == null
+                    ? 'Record Mortality'
+                    : 'Edit Mortality',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 24),

@@ -45,12 +45,14 @@ class _AddFeedUsageScreenState extends ConsumerState<AddFeedUsageScreen> {
         flockId: widget.flockId,
         date: _date,
         quantityKg: double.parse(_quantityController.text.trim()),
-        notes: _notesController.text.trim().isEmpty 
-            ? null 
+        notes: _notesController.text.trim().isEmpty
+            ? null
             : _notesController.text.trim(),
       );
 
-      await ref.read(feedUsageProvider(widget.flockId).notifier).addUsage(usage);
+      await ref
+          .read(feedUsageProvider(widget.flockId).notifier)
+          .addUsage(usage);
 
       if (mounted) {
         Navigator.of(context).pop();

@@ -60,8 +60,8 @@ class _AddFlockScreenState extends ConsumerState<AddFlockScreen> {
         initialCount: int.parse(_countController.text.trim()),
         dateAcquired: _dateAcquired,
         purpose: _purpose,
-        notes: _notesController.text.trim().isEmpty 
-            ? null 
+        notes: _notesController.text.trim().isEmpty
+            ? null
             : _notesController.text.trim(),
         createdAt: widget.flock?.createdAt,
       );
@@ -76,8 +76,8 @@ class _AddFlockScreenState extends ConsumerState<AddFlockScreen> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.flock == null 
-                ? 'Flock added successfully' 
+            content: Text(widget.flock == null
+                ? 'Flock added successfully'
                 : 'Flock updated successfully'),
           ),
         );
@@ -115,7 +115,8 @@ class _AddFlockScreenState extends ConsumerState<AddFlockScreen> {
                   hintText: 'e.g., Batch A - January 2024',
                   prefixIcon: Icon(Icons.label_outline),
                 ),
-                validator: (value) => Validators.required(value, fieldName: 'Batch name'),
+                validator: (value) =>
+                    Validators.required(value, fieldName: 'Batch name'),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -125,7 +126,8 @@ class _AddFlockScreenState extends ConsumerState<AddFlockScreen> {
                   hintText: 'e.g., Rhode Island Red',
                   prefixIcon: Icon(Icons.pets),
                 ),
-                validator: (value) => Validators.required(value, fieldName: 'Breed'),
+                validator: (value) =>
+                    Validators.required(value, fieldName: 'Breed'),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -136,7 +138,8 @@ class _AddFlockScreenState extends ConsumerState<AddFlockScreen> {
                   hintText: 'Number of birds',
                   prefixIcon: Icon(Icons.format_list_numbered),
                 ),
-                validator: (value) => Validators.positiveInteger(value, fieldName: 'Count'),
+                validator: (value) =>
+                    Validators.positiveInteger(value, fieldName: 'Count'),
               ),
               const SizedBox(height: 16),
               DatePickerField(
@@ -145,7 +148,8 @@ class _AddFlockScreenState extends ConsumerState<AddFlockScreen> {
                 firstDate: DateTime(2000),
                 lastDate: DateTime.now(),
                 onDateSelected: (date) => setState(() => _dateAcquired = date),
-                validator: (date) => Validators.dateNotInFuture(date, fieldName: 'Date acquired'),
+                validator: (date) => Validators.dateNotInFuture(date,
+                    fieldName: 'Date acquired'),
               ),
               const SizedBox(height: 16),
               _buildPurposeSelector(),
@@ -162,15 +166,15 @@ class _AddFlockScreenState extends ConsumerState<AddFlockScreen> {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _saveFlock,
-                icon: _isLoading 
+                icon: _isLoading
                     ? const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : Icon(widget.flock == null ? Icons.add : Icons.save),
-                label: Text(_isLoading 
-                    ? 'Saving...' 
+                label: Text(_isLoading
+                    ? 'Saving...'
                     : (widget.flock == null ? 'Add Flock' : 'Update Flock')),
               ),
             ],
@@ -187,8 +191,8 @@ class _AddFlockScreenState extends ConsumerState<AddFlockScreen> {
         Text(
           'Purpose',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
         const SizedBox(height: 8),
         Row(
@@ -237,7 +241,9 @@ class _PurposeOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isSelected ? color.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface,
+      color: isSelected
+          ? color.withValues(alpha: 0.1)
+          : Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -246,7 +252,12 @@ class _PurposeOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             border: Border.all(
-              color: isSelected ? color : Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+              color: isSelected
+                  ? color
+                  : Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.3),
               width: isSelected ? 2 : 1,
             ),
             borderRadius: BorderRadius.circular(12),
@@ -255,13 +266,17 @@ class _PurposeOption extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: isSelected ? color : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: isSelected
+                    ? color
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               const SizedBox(height: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? color : Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: isSelected
+                      ? color
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),

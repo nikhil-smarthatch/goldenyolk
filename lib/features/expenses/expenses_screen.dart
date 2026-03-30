@@ -45,7 +45,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                   // Filter by selected month
                   final filtered = expenses.where((e) {
                     return e.date.year == _selectedMonth.year &&
-                           e.date.month == _selectedMonth.month;
+                        e.date.month == _selectedMonth.month;
                   }).toList();
 
                   if (filtered.isEmpty) {
@@ -55,7 +55,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       subtitle: 'Track your farm expenses to manage costs',
                       onAction: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const AddExpenseScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const AddExpenseScreen()),
                       ),
                       actionLabel: 'Add Expense',
                     );
@@ -68,14 +69,16 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
                   return Column(
                     children: [
-                      _buildTotalCard(context, totalExpenses, settings.currencySymbol),
+                      _buildTotalCard(
+                          context, totalExpenses, settings.currencySymbol),
                       Expanded(
                         child: ListView.builder(
                           padding: const EdgeInsets.all(16),
                           itemCount: filtered.length,
                           itemBuilder: (context, index) {
                             final expense = filtered[index];
-                            return _buildExpenseCard(context, expense, settings.currencySymbol);
+                            return _buildExpenseCard(
+                                context, expense, settings.currencySymbol);
                           },
                         ),
                       ),
@@ -121,14 +124,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
               DateHelpers.formatMonthYear(_selectedMonth),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: _selectedMonth.month == DateTime.now().month &&
-                       _selectedMonth.year == DateTime.now().year
+                    _selectedMonth.year == DateTime.now().year
                 ? null
                 : () {
                     setState(() {
@@ -144,7 +147,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     );
   }
 
-  Widget _buildTotalCard(BuildContext context, double total, String currencySymbol) {
+  Widget _buildTotalCard(
+      BuildContext context, double total, String currencySymbol) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       color: AppColors.error.withValues(alpha: 0.1),
@@ -168,15 +172,15 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                   Text(
                     'Total Expenses',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
                   Text(
                     CurrencyFormatter.format(total, symbol: currencySymbol),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.error,
-                    ),
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.error,
+                        ),
                   ),
                 ],
               ),
@@ -187,7 +191,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     );
   }
 
-  Widget _buildExpenseCard(BuildContext context, dynamic expense, String currencySymbol) {
+  Widget _buildExpenseCard(
+      BuildContext context, dynamic expense, String currencySymbol) {
     final icon = _getCategoryIcon(expense.category);
     final color = _getCategoryColor(expense.category);
 
@@ -214,8 +219,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
           trailing: Text(
             CurrencyFormatter.format(expense.amount, symbol: currencySymbol),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
         ),
       ),
@@ -312,7 +317,7 @@ class _CategoryBreakdownView extends ConsumerWidget {
                     // Group by category
                     final Map<String, double> byCategory = {};
                     for (final expense in expenses) {
-                      byCategory[expense.category] = 
+                      byCategory[expense.category] =
                           (byCategory[expense.category] ?? 0) + expense.amount;
                     }
 
@@ -333,7 +338,8 @@ class _CategoryBreakdownView extends ConsumerWidget {
                             children: byCategory.entries.map((entry) {
                               return ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: _getCategoryColor(entry.key).withValues(alpha: 0.2),
+                                  backgroundColor: _getCategoryColor(entry.key)
+                                      .withValues(alpha: 0.2),
                                   child: Icon(
                                     _getCategoryIcon(entry.key),
                                     color: _getCategoryColor(entry.key),
@@ -341,8 +347,10 @@ class _CategoryBreakdownView extends ConsumerWidget {
                                 ),
                                 title: Text(entry.key),
                                 trailing: Text(
-                                  CurrencyFormatter.format(entry.value, symbol: settings.currencySymbol),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  CurrencyFormatter.format(entry.value,
+                                      symbol: settings.currencySymbol),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
                                 ),
                               );
                             }).toList(),
@@ -401,21 +409,31 @@ class _CategoryBreakdownView extends ConsumerWidget {
 
   IconData _getCategoryIcon(String category) {
     switch (category.toLowerCase()) {
-      case 'medicine': return Icons.medical_services;
-      case 'vaccine': return Icons.vaccines;
-      case 'equipment': return Icons.handyman;
-      case 'labor': return Icons.people;
-      default: return Icons.receipt;
+      case 'medicine':
+        return Icons.medical_services;
+      case 'vaccine':
+        return Icons.vaccines;
+      case 'equipment':
+        return Icons.handyman;
+      case 'labor':
+        return Icons.people;
+      default:
+        return Icons.receipt;
     }
   }
 
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
-      case 'medicine': return Colors.red;
-      case 'vaccine': return Colors.orange;
-      case 'equipment': return Colors.blue;
-      case 'labor': return Colors.green;
-      default: return Colors.grey;
+      case 'medicine':
+        return Colors.red;
+      case 'vaccine':
+        return Colors.orange;
+      case 'equipment':
+        return Colors.blue;
+      case 'labor':
+        return Colors.green;
+      default:
+        return Colors.grey;
     }
   }
 }

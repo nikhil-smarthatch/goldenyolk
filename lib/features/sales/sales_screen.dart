@@ -16,7 +16,8 @@ class SalesScreen extends ConsumerStatefulWidget {
   ConsumerState<SalesScreen> createState() => _SalesScreenState();
 }
 
-class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProviderStateMixin {
+class _SalesScreenState extends ConsumerState<SalesScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -91,7 +92,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildEggSaleCard(BuildContext context, dynamic sale, String currencySymbol) {
+  Widget _buildEggSaleCard(
+      BuildContext context, dynamic sale, String currencySymbol) {
     return SwipeableListItem(
       onEdit: () {
         Navigator.push(
@@ -128,22 +130,28 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
                       children: [
                         Text(
                           sale.buyer ?? 'Unknown Buyer',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         Text(
                           DateHelpers.formatDateTime(sale.date),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ),
                   ),
                   StatusChip(
                     status: sale.paymentStatus == 'paid' ? 'Paid' : 'Credit',
-                    color: sale.paymentStatus == 'paid' ? AppColors.success : AppColors.warning,
+                    color: sale.paymentStatus == 'paid'
+                        ? AppColors.success
+                        : AppColors.warning,
                   ),
                 ],
               ),
@@ -161,14 +169,16 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
                     child: _buildStat(
                       context,
                       'Price/Egg',
-                      CurrencyFormatter.format(sale.pricePerUnit, symbol: currencySymbol),
+                      CurrencyFormatter.format(sale.pricePerUnit,
+                          symbol: currencySymbol),
                     ),
                   ),
                   Expanded(
                     child: _buildStat(
                       context,
                       'Total',
-                      CurrencyFormatter.format(sale.totalAmount, symbol: currencySymbol),
+                      CurrencyFormatter.format(sale.totalAmount,
+                          symbol: currencySymbol),
                       isBold: true,
                     ),
                   ),
@@ -202,7 +212,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
             itemCount: sales.length,
             itemBuilder: (context, index) {
               final sale = sales[index];
-              return _buildChickenSaleCard(context, sale, settings.currencySymbol);
+              return _buildChickenSaleCard(
+                  context, sale, settings.currencySymbol);
             },
           );
         },
@@ -212,7 +223,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildChickenSaleCard(BuildContext context, dynamic sale, String currencySymbol) {
+  Widget _buildChickenSaleCard(
+      BuildContext context, dynamic sale, String currencySymbol) {
     return SwipeableListItem(
       onEdit: () {
         Navigator.push(
@@ -240,7 +252,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
                       color: AppColors.accentOrange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.pets, color: AppColors.accentOrange),
+                    child:
+                        const Icon(Icons.pets, color: AppColors.accentOrange),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -249,15 +262,19 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
                       children: [
                         Text(
                           sale.buyer ?? 'Unknown Buyer',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         Text(
                           DateHelpers.formatDateTime(sale.date),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ),
@@ -278,14 +295,16 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
                     child: _buildStat(
                       context,
                       'Price/Bird',
-                      CurrencyFormatter.format(sale.pricePerBird, symbol: currencySymbol),
+                      CurrencyFormatter.format(sale.pricePerBird,
+                          symbol: currencySymbol),
                     ),
                   ),
                   Expanded(
                     child: _buildStat(
                       context,
                       'Total',
-                      CurrencyFormatter.format(sale.totalAmount, symbol: currencySymbol),
+                      CurrencyFormatter.format(sale.totalAmount,
+                          symbol: currencySymbol),
                       isBold: true,
                     ),
                   ),
@@ -325,7 +344,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
               decoration: BoxDecoration(
                 color: AppColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                border:
+                    Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -337,14 +357,17 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
                       children: [
                         Text(
                           'Total Pending',
-                          style: TextStyle(color: AppColors.warning.withValues(alpha: 0.8)),
+                          style: TextStyle(
+                              color: AppColors.warning.withValues(alpha: 0.8)),
                         ),
                         Text(
-                          CurrencyFormatter.format(totalPending, symbol: settings.currencySymbol),
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.warning,
-                          ),
+                          CurrencyFormatter.format(totalPending,
+                              symbol: settings.currencySymbol),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.warning,
+                                  ),
                         ),
                       ],
                     ),
@@ -358,7 +381,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
                 itemCount: sales.length,
                 itemBuilder: (context, index) {
                   final sale = sales[index];
-                  return _buildPendingCard(context, sale, settings.currencySymbol);
+                  return _buildPendingCard(
+                      context, sale, settings.currencySymbol);
                 },
               ),
             ),
@@ -370,28 +394,30 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildPendingCard(BuildContext context, dynamic sale, String currencySymbol) {
+  Widget _buildPendingCard(
+      BuildContext context, dynamic sale, String currencySymbol) {
     return _PendingCard(
       sale: sale,
       currencySymbol: currencySymbol,
     );
   }
 
-  Widget _buildStat(BuildContext context, String label, String value, {bool isBold = false}) {
+  Widget _buildStat(BuildContext context, String label, String value,
+      {bool isBold = false}) {
     return Column(
       children: [
         Text(
           value,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-          ),
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
       ],
     );
@@ -422,7 +448,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> with SingleTickerProv
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const AddChickenSaleScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const AddChickenSaleScreen()),
                 );
               },
             ),
@@ -467,11 +494,12 @@ class _PendingCardState extends ConsumerState<_PendingCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              CurrencyFormatter.format(sale.totalAmount, symbol: currencySymbol),
+              CurrencyFormatter.format(sale.totalAmount,
+                  symbol: currencySymbol),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.warning,
-              ),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.warning,
+                  ),
             ),
             const SizedBox(width: 8),
             FilledButton(
@@ -480,7 +508,9 @@ class _PendingCardState extends ConsumerState<_PendingCard> {
                   : () async {
                       setState(() => _isLoading = true);
                       try {
-                        await ref.read(eggSalesProvider.notifier).markAsPaid(sale.id);
+                        await ref
+                            .read(eggSalesProvider.notifier)
+                            .markAsPaid(sale.id);
                       } finally {
                         if (mounted) {
                           setState(() => _isLoading = false);
