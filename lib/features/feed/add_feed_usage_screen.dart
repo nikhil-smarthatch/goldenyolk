@@ -114,7 +114,7 @@ class _AddFeedUsageScreenState extends ConsumerState<AddFeedUsageScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _quantityController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   labelText: 'Quantity Used',
                   hintText: 'Amount of feed consumed',

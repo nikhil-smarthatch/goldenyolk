@@ -131,7 +131,7 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
                     child: TextFormField(
                       controller: _quantityController,
                       keyboardType:
-                          TextInputType.numberWithOptions(decimal: true),
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
                         labelText: 'Quantity',
                         hintText: 'kg or bags',
@@ -151,7 +151,7 @@ class _AddFeedPurchaseScreenState extends ConsumerState<AddFeedPurchaseScreen> {
                     child: TextFormField(
                       controller: _priceController,
                       keyboardType:
-                          TextInputType.numberWithOptions(decimal: true),
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: 'Price per kg',
                         hintText: '0.00',

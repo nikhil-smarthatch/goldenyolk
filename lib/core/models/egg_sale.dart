@@ -1,20 +1,22 @@
 class EggSale {
   final int? id;
-  final DateTime date;
+  final DateTime orderDate;
+  final DateTime? deliveryDate;
   final int quantity;
   final double pricePerUnit;
   final String? buyer;
-  final String paymentStatus;
+  final String status; // 'ordered', 'delivered', 'cancelled'
   final String? notes;
   final DateTime createdAt;
 
   EggSale({
     this.id,
-    required this.date,
+    required this.orderDate,
+    this.deliveryDate,
     required this.quantity,
     required this.pricePerUnit,
     this.buyer,
-    this.paymentStatus = 'paid',
+    this.status = 'ordered',
     this.notes,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -22,11 +24,12 @@ class EggSale {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'date': date.toIso8601String(),
+      'order_date': orderDate.toIso8601String(),
+      'delivery_date': deliveryDate?.toIso8601String(),
       'quantity': quantity,
       'price_per_unit': pricePerUnit,
       'buyer': buyer,
-      'payment_status': paymentStatus,
+      'status': status,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
     };
@@ -35,11 +38,12 @@ class EggSale {
   factory EggSale.fromMap(Map<String, dynamic> map) {
     return EggSale(
       id: map['id'] as int?,
-      date: DateTime.parse(map['date'] as String),
+      orderDate: DateTime.parse(map['order_date'] as String),
+      deliveryDate: map['delivery_date'] != null ? DateTime.parse(map['delivery_date'] as String) : null,
       quantity: map['quantity'] as int,
       pricePerUnit: map['price_per_unit'] as double,
       buyer: map['buyer'] as String?,
-      paymentStatus: map['payment_status'] as String,
+      status: map['status'] as String,
       notes: map['notes'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
@@ -47,26 +51,29 @@ class EggSale {
 
   double get totalAmount => quantity * pricePerUnit;
 
-  bool get isPaid => paymentStatus == 'paid';
-  bool get isCredit => paymentStatus == 'credit';
+  bool get isDelivered => status == 'delivered';
+  bool get isOrdered => status == 'ordered';
+  bool get isCancelled => status == 'cancelled';
 
   EggSale copyWith({
     int? id,
-    DateTime? date,
+    DateTime? orderDate,
+    DateTime? deliveryDate,
     int? quantity,
     double? pricePerUnit,
     String? buyer,
-    String? paymentStatus,
+    String? status,
     String? notes,
     DateTime? createdAt,
   }) {
     return EggSale(
       id: id ?? this.id,
-      date: date ?? this.date,
+      orderDate: orderDate ?? this.orderDate,
+      deliveryDate: deliveryDate ?? this.deliveryDate,
       quantity: quantity ?? this.quantity,
       pricePerUnit: pricePerUnit ?? this.pricePerUnit,
       buyer: buyer ?? this.buyer,
-      paymentStatus: paymentStatus ?? this.paymentStatus,
+      status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
     );

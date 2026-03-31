@@ -5,8 +5,6 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Database seeding disabled - app starts with empty data
-  
   runApp(
     const ProviderScope(
       child: PoultryProApp(),

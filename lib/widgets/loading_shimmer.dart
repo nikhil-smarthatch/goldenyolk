@@ -77,7 +77,7 @@ class GridShimmer extends StatelessWidget {
       ),
       itemCount: itemCount,
       itemBuilder: (context, index) {
-        return LoadingShimmer(
+        return const LoadingShimmer(
           height: double.infinity,
           borderRadius: 16,
         );

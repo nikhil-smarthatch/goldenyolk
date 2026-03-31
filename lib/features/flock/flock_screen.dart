@@ -15,18 +15,48 @@ class FlockScreen extends ConsumerStatefulWidget {
 }
 
 class _FlockScreenState extends ConsumerState<FlockScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final flockAsync = ref.watch(flockProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Flock Management'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search flocks...',
+                  border: InputBorder.none,
+                  hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                onChanged: (_) => setState(() {}),
+                autofocus: true,
+              )
+            : const Text('Flock Management'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
             onPressed: () {
-              // TODO: Implement search
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchController.clear();
+                }
+              });
             },
           ),
         ],
@@ -37,6 +67,15 @@ class _FlockScreenState extends ConsumerState<FlockScreen> {
         },
         child: flockAsync.when(
           data: (flocks) {
+            // Filter flocks based on search query
+            final filteredFlocks = _searchController.text.isEmpty
+                ? flocks
+                : flocks
+                    .where((flock) =>
+                        flock.name.toLowerCase().contains(_searchController.text.toLowerCase()) ||
+                        flock.breed.toLowerCase().contains(_searchController.text.toLowerCase()))
+                    .toList();
+
             if (flocks.isEmpty) {
               return const EmptyState(
                 icon: Icons.pets,
@@ -45,11 +84,19 @@ class _FlockScreenState extends ConsumerState<FlockScreen> {
               );
             }
 
+            if (filteredFlocks.isEmpty) {
+              return EmptyState(
+                icon: Icons.search_off,
+                title: 'No Flocks Found',
+                subtitle: 'No flocks match "${_searchController.text}"',
+              );
+            }
+
             return ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: flocks.length,
+              itemCount: filteredFlocks.length,
               itemBuilder: (context, index) {
-                final flock = flocks[index];
+                final flock = filteredFlocks[index];
                 return _FlockCard(flock: flock);
               },
             );

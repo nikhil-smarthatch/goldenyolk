@@ -41,7 +41,7 @@ class EggSaleDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.egg,
                       size: 48,
                       color: AppColors.accentYellow,
@@ -68,34 +68,46 @@ class EggSaleDetailScreen extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: sale.isPaid
+                        color: sale.isDelivered
                             ? AppColors.success.withValues(alpha: 0.1)
-                            : AppColors.warning.withValues(alpha: 0.1),
+                            : sale.isCancelled
+                                ? AppColors.error.withValues(alpha: 0.1)
+                                : AppColors.warning.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: sale.isPaid
+                          color: sale.isDelivered
                               ? AppColors.success
-                              : AppColors.warning,
+                              : sale.isCancelled
+                                  ? AppColors.error
+                                  : AppColors.warning,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            sale.isPaid ? Icons.check_circle : Icons.schedule,
-                            color: sale.isPaid
+                            sale.isDelivered
+                                ? Icons.check_circle
+                                : sale.isCancelled
+                                    ? Icons.cancel
+                                    : Icons.schedule,
+                            color: sale.isDelivered
                                 ? AppColors.success
-                                : AppColors.warning,
+                                : sale.isCancelled
+                                    ? AppColors.error
+                                    : AppColors.warning,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            sale.paymentStatus.toUpperCase(),
+                            sale.status.toUpperCase(),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: sale.isPaid
+                              color: sale.isDelivered
                                   ? AppColors.success
-                                  : AppColors.warning,
+                                  : sale.isCancelled
+                                      ? AppColors.error
+                                      : AppColors.warning,
                             ),
                           ),
                         ],
@@ -118,7 +130,10 @@ class EggSaleDetailScreen extends ConsumerWidget {
 
             _buildDetailRow(context, 'Order ID', '#${sale.id ?? 'N/A'}'),
             _buildDetailRow(
-                context, 'Date', DateHelpers.formatDateTime(sale.date)),
+                context, 'Order Date', DateHelpers.formatDateTime(sale.orderDate)),
+            if (sale.deliveryDate != null)
+              _buildDetailRow(context, 'Delivery Date',
+                  DateHelpers.formatDateTime(sale.deliveryDate!)),
             _buildDetailRow(context, 'Buyer', sale.buyer ?? 'Not specified'),
             _buildDetailRow(context, 'Quantity', '${sale.quantity} eggs'),
             _buildDetailRow(
@@ -132,7 +147,7 @@ class EggSaleDetailScreen extends ConsumerWidget {
                 CurrencyFormatter.format(sale.totalAmount,
                     symbol: settings.currencySymbol),
                 isBold: true),
-            _buildDetailRow(context, 'Payment Status', sale.paymentStatus),
+            _buildDetailRow(context, 'Status', sale.status.toUpperCase()),
             _buildDetailRow(
                 context, 'Created', DateHelpers.formatDateTime(sale.createdAt)),
 
@@ -161,23 +176,23 @@ class EggSaleDetailScreen extends ConsumerWidget {
             // Action Buttons
             Row(
               children: [
-                if (sale.isCredit) ...[
+                if (sale.isOrdered) ...[
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: () async {
                         await ref
                             .read(eggSalesProvider.notifier)
-                            .markAsPaid(sale.id!);
+                            .markAsDelivered(sale.id!);
                         if (context.mounted) {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Payment marked as paid')),
+                                content: Text('Order marked as delivered')),
                           );
                         }
                       },
-                      icon: const Icon(Icons.check_circle),
-                      label: const Text('Mark as Paid'),
+                      icon: const Icon(Icons.local_shipping),
+                      label: const Text('Mark Delivered'),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.success,
                       ),
@@ -194,7 +209,7 @@ class EggSaleDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     icon: const Icon(Icons.edit),
-                    label: const Text('Edit Sale'),
+                    label: const Text('Edit Order'),
                   ),
                 ),
               ],

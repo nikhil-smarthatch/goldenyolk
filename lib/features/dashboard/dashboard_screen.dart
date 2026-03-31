@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/providers/providers.dart';
 import '../../core/utils/date_helpers.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/app_colors.dart';
 import '../../widgets/widgets.dart';
-import '../eggs/add_egg_collection_screen.dart';
+import '../eggs/eggs_screen.dart';
 import '../sales/add_egg_sale_screen.dart';
-import '../feed/add_feed_purchase_screen.dart';
+import '../sales/sales_screen.dart';
+import '../feed/feed_screen.dart';
+import '../flock/flock_screen.dart';
+import '../expenses/expenses_screen.dart';
+import '../reports/reports_screen.dart';
 import '../settings/settings_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -17,7 +22,32 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _headerController;
+  late Animation<double> _headerFade;
+  late Animation<Offset> _headerSlide;
+
+  @override
+  void initState() {
+    super.initState();
+    _headerController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
+    _headerFade = CurvedAnimation(
+        parent: _headerController, curve: Curves.easeOut);
+    _headerSlide = Tween<Offset>(
+            begin: const Offset(0, -0.2), end: Offset.zero)
+        .animate(CurvedAnimation(
+            parent: _headerController, curve: Curves.easeOutCubic));
+    _headerController.forward();
+  }
+
+  @override
+  void dispose() {
+    _headerController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
@@ -26,50 +56,60 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final totalLiveChickensAsync = ref.watch(totalLiveChickensProvider);
     final stockAsync = ref.watch(currentStockProvider);
     final weeklyProduction = ref.watch(weeklyEggProductionProvider);
+    final remainingStock = ref.watch(remainingStockProvider);
+    final now = DateTime.now();
+    final greeting = _getGreeting();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(settings.farmName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            ),
-          ),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(flockProvider);
-          ref.invalidate(totalLiveChickensProvider);
-          ref.invalidate(todayEggCollectionProvider);
-          ref.invalidate(todayEggSalesProvider);
-          ref.invalidate(currentStockProvider);
-          ref.invalidate(weeklyEggProductionProvider);
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildQuickActions(context),
-              const SizedBox(height: 24),
-              _buildSummaryCards(
-                context,
-                totalLiveChickensAsync,
-                todayEggs,
-                todaySales,
-                stockAsync,
-                settings.currencySymbol,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF0F7F0),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(flockProvider);
+            ref.invalidate(totalLiveChickensProvider);
+            ref.invalidate(todayEggCollectionProvider);
+            ref.invalidate(todayEggSalesProvider);
+            ref.invalidate(currentStockProvider);
+            ref.invalidate(weeklyEggProductionProvider);
+            ref.invalidate(remainingStockProvider);
+          },
+          color: AppColors.primaryGreen,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // ── Header sliver ──
+              SliverToBoxAdapter(
+                child: _buildHeader(context, settings, greeting, now),
               ),
-              const SizedBox(height: 24),
-              _buildWeeklyChart(context, weeklyProduction),
-              const SizedBox(height: 24),
-              _buildAlertsSection(
-                  context, totalLiveChickensAsync, stockAsync, settings.lowStockThreshold),
+              // ── Stats row ──
+              SliverToBoxAdapter(
+                child: _buildStatsRow(
+                    context, totalLiveChickensAsync, todayEggs,
+                    todaySales, stockAsync, remainingStock, settings.currencySymbol),
+              ),
+              // ── Manage Farm grid ──
+              SliverToBoxAdapter(
+                child: _buildManageSection(context),
+              ),
+              // ── Weekly chart ──
+              SliverToBoxAdapter(
+                child: _buildWeeklyChart(context, weeklyProduction),
+              ),
+              // ── Quick actions ──
+              SliverToBoxAdapter(
+                child: _buildQuickActions(context),
+              ),
+              // ── Alerts ──
+              SliverToBoxAdapter(
+                child: _buildAlertsSection(
+                    context, totalLiveChickensAsync, stockAsync,
+                    settings.lowStockThreshold),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
           ),
         ),
@@ -77,174 +117,498 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    return QuickActionsRow(
-      actions: [
-        QuickActionButton(
-          icon: Icons.egg_alt,
-          label: 'Add Eggs',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddEggCollectionScreen()),
+  String _getGreeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  // ─── Header ───────────────────────────────────────────────────────────────
+  Widget _buildHeader(BuildContext context, AppSettings settings,
+      String greeting, DateTime now) {
+    return FadeTransition(
+      opacity: _headerFade,
+      child: SlideTransition(
+        position: _headerSlide,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2E7D32), Color(0xFF4CAF50), Color(0xFF66BB6A)],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
           ),
-          color: AppColors.accentYellow,
-        ),
-        QuickActionButton(
-          icon: Icons.attach_money,
-          label: 'Record Sale',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddEggSaleScreen()),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              greeting,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            Text(
+                              settings.farmName,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                fontFamily: 'Inter',
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Settings button
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SettingsScreen()),
+                        ),
+                        child: Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Text('⚙️', style: TextStyle(fontSize: 22)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Date chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today_rounded,
+                            color: Colors.white, size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          DateHelpers.formatDate(now),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          color: AppColors.success,
         ),
-        QuickActionButton(
-          icon: Icons.grain,
-          label: 'Add Feed',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddFeedPurchaseScreen()),
-          ),
-          color: AppColors.accentOrange,
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildSummaryCards(
+  // ─── Stats horizontal scroll ───────────────────────────────────────────────
+  Widget _buildStatsRow(
     BuildContext context,
-    AsyncValue<int> totalLiveChickensAsync,
+    AsyncValue<int> totalChickensAsync,
     AsyncValue<Map<String, dynamic>> todayEggs,
     AsyncValue<Map<String, dynamic>> todaySales,
     AsyncValue<double> stockAsync,
+    AsyncValue<int> remainingStock,
     String currencySymbol,
   ) {
-    return totalLiveChickensAsync.when(
-      data: (totalChickens) {
-
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isSmallScreen = constraints.maxWidth < 360;
-            final isTablet = constraints.maxWidth > 600;
-            final crossAxisCount = isTablet ? 4 : 2;
-            final childAspectRatio = isSmallScreen ? 0.9 : isTablet ? 1.2 : 1.1;
-            
-            return GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: crossAxisCount,
-              childAspectRatio: childAspectRatio,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 0, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(context, "Today's Overview", null),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 120,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(right: 20),
               children: [
-                SummaryCard(
-                  title: 'Total Chickens',
-                  value: NumberFormatter.format(totalChickens),
-                  icon: Icons.pets,
-                  color: AppColors.primaryGreen,
+                totalChickensAsync.when(
+                  data: (n) => _statCard(context, '🐓', 'Live Chickens',
+                      NumberFormatter.format(n), const Color(0xFFE8F5E9), const Color(0xFF2E7D32)),
+                  loading: () => _statCardShimmer(),
+                  error: (_, __) => _statCard(context, '🐓', 'Live Chickens',
+                      '—', const Color(0xFFE8F5E9), const Color(0xFF2E7D32)),
                 ),
+                const SizedBox(width: 12),
                 todayEggs.when(
-                  data: (eggs) => SummaryCard(
-                    title: 'Eggs Today',
-                    value: NumberFormatter.format(eggs['good'] as int? ?? 0),
-                    icon: Icons.egg,
-                    color: AppColors.accentYellow,
-                    subtitle: '${eggs['broken'] ?? 0} broken',
-                  ),
-                  loading: () => const LoadingShimmer(height: 100),
-                  error: (_, __) => SummaryCard(
-                    title: 'Eggs Today',
-                    value: '0',
-                    icon: Icons.egg,
-                    color: AppColors.accentYellow,
-                  ),
+                  data: (eggs) => _statCard(
+                      context, '🥚', 'Eggs Today',
+                      NumberFormatter.format(eggs['good'] as int? ?? 0),
+                      const Color(0xFFFFFDE7), const Color(0xFFF57F17),
+                      subtitle: '${eggs['broken'] ?? 0} broken'),
+                  loading: () => _statCardShimmer(),
+                  error: (_, __) => _statCard(context, '🥚', 'Eggs Today',
+                      '—', const Color(0xFFFFFDE7), const Color(0xFFF57F17)),
                 ),
+                const SizedBox(width: 12),
                 todaySales.when(
-                  data: (sales) => CurrencySummaryCard(
-                    title: 'Revenue Today',
-                    value: (sales['revenue'] as num?)?.toDouble() ?? 0,
-                    icon: Icons.attach_money,
-                    color: AppColors.success,
-                    subtitle: '${sales['quantity'] ?? 0} eggs sold',
-                  ),
-                  loading: () => const LoadingShimmer(height: 100),
-                  error: (_, __) => CurrencySummaryCard(
-                    title: 'Revenue Today',
-                    value: 0,
-                    icon: Icons.attach_money,
-                    color: AppColors.success,
-                  ),
+                  data: (sales) => _statCard(
+                      context, '💰', 'Revenue',
+                      CurrencyFormatter.format(
+                          (sales['revenue'] as num?)?.toDouble() ?? 0,
+                          symbol: currencySymbol,
+                          decimalDigits: 0),
+                      const Color(0xFFE3F2FD), const Color(0xFF1565C0),
+                      subtitle: '${sales['quantity'] ?? 0} sold'),
+                  loading: () => _statCardShimmer(),
+                  error: (_, __) => _statCard(context, '💰', 'Revenue',
+                      '—', const Color(0xFFE3F2FD), const Color(0xFF1565C0)),
                 ),
+                const SizedBox(width: 12),
+                remainingStock.when(
+                  data: (stock) => _statCard(
+                      context, '📦', 'Egg Stock',
+                      NumberFormatter.format(stock),
+                      const Color(0xFFE0F7FA), const Color(0xFF00838F),
+                      subtitle: 'remaining'),
+                  loading: () => _statCardShimmer(),
+                  error: (_, __) => _statCard(context, '📦', 'Egg Stock',
+                      '—', const Color(0xFFE0F7FA), const Color(0xFF00838F)),
+                ),
+                const SizedBox(width: 12),
                 stockAsync.when(
-                  data: (stock) => SummaryCard(
-                    title: 'Feed Stock',
-                    value: '${CurrencyFormatter.formatSimple(stock)} kg',
-                    icon: Icons.grain,
-                    color: AppColors.accentOrange,
-                  ),
-                  loading: () => const LoadingShimmer(height: 100),
-                  error: (_, __) => SummaryCard(
-                    title: 'Feed Stock',
-                    value: '0 kg',
-                    icon: Icons.grain,
-                    color: AppColors.accentOrange,
-                  ),
+                  data: (stock) => _statCard(
+                      context, '🌾', 'Feed Stock',
+                      '${CurrencyFormatter.formatSimple(stock)} kg',
+                      const Color(0xFFFCE4EC), const Color(0xFFC62828)),
+                  loading: () => _statCardShimmer(),
+                  error: (_, __) => _statCard(context, '🌾', 'Feed Stock',
+                      '—', const Color(0xFFFCE4EC), const Color(0xFFC62828)),
                 ),
+                const SizedBox(width: 12),
               ],
-            );
-          },
-        );
-      },
-      loading: () => const GridShimmer(crossAxisCount: 2, itemCount: 4),
-      error: (_, __) => const Center(child: Text('Error loading data')),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
+  Widget _statCard(BuildContext context, String emoji, String label,
+      String value, Color bgColor, Color textColor,
+      {String? subtitle}) {
+    return Container(
+      width: 130,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: textColor.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(emoji, style: const TextStyle(fontSize: 20)),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: textColor,
+              fontFamily: 'Inter',
+            ),
+          ),
+          Text(
+            subtitle ?? label,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[500],
+              fontFamily: 'Inter',
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statCardShimmer() {
+    return Container(
+      width: 130,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const LoadingShimmer(height: 120),
+    );
+  }
+
+  // ─── Manage your farm ─────────────────────────────────────────────────────
+  Widget _buildManageSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(context, 'Manage Your Farm', 'Sell all >'),
+          const SizedBox(height: 14),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 1.15,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+            children: [
+              _farmCard(
+                context,
+                emoji: '🐔',
+                title: 'My Flock',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF9FBE7), Color(0xFFF0F4C3)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                accentColor: const Color(0xFF827717),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FlockScreen()),
+                ),
+              ),
+              _farmCard(
+                context,
+                emoji: '🥚',
+                title: 'Eggs',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF3E5F5), Color(0xFFEDE7F6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                accentColor: const Color(0xFF6A1B9A),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EggsScreen()),
+                ),
+              ),
+              _farmCard(
+                context,
+                emoji: '💵',
+                title: 'Sales',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFE8F5E9), Color(0xFFDCEDC8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                accentColor: const Color(0xFF2E7D32),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SalesScreen()),
+                ),
+              ),
+              _farmCard(
+                context,
+                emoji: '🌾',
+                title: 'Feed',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFF8E1), Color(0xFFFFF3CD)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                accentColor: const Color(0xFFF57F17),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FeedScreen()),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _farmCard(
+    BuildContext context, {
+    required String emoji,
+    required String title,
+    required Gradient gradient,
+    required Color accentColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withValues(alpha: 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Big emoji background
+            Positioned(
+              right: -10,
+              bottom: -10,
+              child: Text(emoji,
+                  style: TextStyle(
+                      fontSize: 70,
+                      color: accentColor.withValues(alpha: 0.15))),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Center(
+                        child: Text(emoji,
+                            style: const TextStyle(fontSize: 24))),
+                  ),
+                  const Spacer(),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: accentColor,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  Text(
+                    'Tap to manage',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: accentColor.withValues(alpha: 0.6),
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Weekly chart ──────────────────────────────────────────────────────────
   Widget _buildWeeklyChart(
       BuildContext context, AsyncValue<List<Map<String, dynamic>>> weeklyData) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.bar_chart,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text('📊', style: TextStyle(fontSize: 18)),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Text(
                   'Weekly Production',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1B5E20),
                       ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             SizedBox(
-              height: 200,
+              height: 160,
               child: weeklyData.when(
                 data: (data) {
                   if (data.isEmpty) {
-                    return EmptyState(
-                      icon: Icons.bar_chart,
-                      title: 'No production data',
-                      subtitle: 'Start collecting eggs to see your weekly trends',
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('🥚', style: TextStyle(fontSize: 36)),
+                          SizedBox(height: 8),
+                          Text('No eggs collected yet',
+                              style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
                     );
                   }
                   return _buildBarChart(data);
                 },
-                loading: () => const LoadingShimmer(height: 200),
-                error: (_, __) => EmptyState(
-                  icon: Icons.error_outline,
-                  title: 'Error loading chart',
-                  subtitle: 'Please try refreshing the data',
-                ),
+                loading: () => const LoadingShimmer(height: 160),
+                error: (_, __) => const Center(child: Text('Error')),
               ),
             ),
           ],
@@ -255,18 +619,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildBarChart(List<Map<String, dynamic>> data) {
     final days = DateHelpers.getLast7Days();
-
     final Map<String, int> dailyData = {};
     for (final day in days) {
       dailyData[DateHelpers.formatCompact(day)] = 0;
     }
-
     for (final item in data) {
       final day = item['day'] as String;
       final eggs = item['good_eggs'] as int? ?? 0;
       dailyData[day] = eggs;
     }
-
     final spots = dailyData.values.toList();
     final maxY = (spots.reduce((a, b) => a > b ? a : b) / 10).ceil() * 10.0;
     final effectiveMaxY = (maxY < 10 ? 10 : maxY).toDouble();
@@ -282,14 +643,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             barRods: [
               BarChartRodData(
                 toY: value,
-                color: AppColors.primaryGreen,
-                width: 20,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primaryGreenLight,
-                    AppColors.primaryGreen,
-                  ],
+                width: 22,
+                borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(8)),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF66BB6A), Color(0xFF2E7D32)],
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                 ),
@@ -298,20 +656,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           );
         }),
         titlesData: FlTitlesData(
-          show: true,
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 40,
+              reservedSize: 32,
               getTitlesWidget: (value, meta) {
                 if (value % 10 == 0) {
-                  return Text(
-                    value.toInt().toString(),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  );
+                  return Text(value.toInt().toString(),
+                      style: const TextStyle(
+                          fontSize: 9, color: Colors.grey));
                 }
                 return const SizedBox.shrink();
               },
@@ -323,16 +676,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               getTitlesWidget: (value, meta) {
                 final dayIndex = value.toInt();
                 if (dayIndex >= 0 && dayIndex < 7) {
-                  final day = days[dayIndex];
-                  final dayName = DateHelpers.getWeekdayShort(day);
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      dayName,
+                      DateHelpers.getWeekdayShort(days[dayIndex]),
                       style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
+                          fontSize: 10, fontWeight: FontWeight.w600,
+                          color: Color(0xFF4CAF50)),
                     ),
                   );
                 }
@@ -340,37 +690,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               },
             ),
           ),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
         ),
         gridData: FlGridData(
           show: true,
-          horizontalInterval: effectiveMaxY / 5,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-              strokeWidth: 1,
-            );
-          },
+          horizontalInterval: effectiveMaxY / 4,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: Colors.grey.withValues(alpha: 0.08),
+            strokeWidth: 1,
+          ),
         ),
-        borderData: FlBorderData(
-          show: false,
-        ),
+        borderData: FlBorderData(show: false),
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            tooltipBgColor: Colors.black87,
+            tooltipBgColor: const Color(0xFF2E7D32),
+            tooltipRoundedRadius: 12,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              final day = days[group.x.toInt()];
-              final value = rod.toY.toInt();
               return BarTooltipItem(
-                '${DateHelpers.getWeekdayShort(day)}\n$value eggs',
+                '${rod.toY.toInt()} 🥚',
                 const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold),
               );
             },
           ),
@@ -379,6 +723,95 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // ─── Quick Actions ─────────────────────────────────────────────────────────
+  Widget _buildQuickActions(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(context, 'Quick Actions', null),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _quickActionButton(
+                  context,
+                  emoji: '📋',
+                  label: 'Expenses',
+                  bgColor: const Color(0xFFFCE4EC),
+                  textColor: const Color(0xFFC62828),
+                  onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ExpensesScreen())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _quickActionButton(
+                  context,
+                  emoji: '📈',
+                  label: 'Reports',
+                  bgColor: const Color(0xFFE8EAF6),
+                  textColor: const Color(0xFF283593),
+                  onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ReportsScreen())),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _quickActionButton(
+                  context,
+                  emoji: '➕',
+                  label: 'New Sale',
+                  bgColor: const Color(0xFFE8F5E9),
+                  textColor: const Color(0xFF2E7D32),
+                  onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AddEggSaleScreen())),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickActionButton(
+    BuildContext context, {
+    required String emoji,
+    required String label,
+    required Color bgColor,
+    required Color textColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 26)),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+                fontFamily: 'Inter',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Alerts ────────────────────────────────────────────────────────────────
   Widget _buildAlertsSection(
     BuildContext context,
     AsyncValue<int> totalLiveChickensAsync,
@@ -386,119 +819,104 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     double lowStockThreshold,
   ) {
     final List<Widget> alerts = [];
-
     stockAsync.whenData((stock) {
       if (stock < lowStockThreshold) {
-        alerts.add(_buildAlertCard(
+        alerts.add(_alertCard(
           context,
-          'Low Feed Stock',
-          'Only ${stock.toStringAsFixed(1)} kg remaining. Consider purchasing more feed.',
-          Icons.warning,
-          AppColors.warning,
+          emoji: '⚠️',
+          title: 'Low Feed Stock',
+          message:
+              'Only ${stock.toStringAsFixed(1)} kg remaining. Purchase more feed.',
+          color: const Color(0xFFFFF8E1),
+          borderColor: const Color(0xFFF57F17),
+          textColor: const Color(0xFFE65100),
         ));
       }
     });
 
-    if (alerts.isEmpty) {
-      return Card(
-        elevation: 1,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(
-                Icons.check_circle,
-                color: AppColors.success,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'All systems running smoothly',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    if (alerts.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.notifications_active,
-              color: AppColors.warning,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Alerts',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ...alerts,
-      ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(context, 'Alerts', null),
+          const SizedBox(height: 10),
+          ...alerts,
+        ],
+      ),
     );
   }
 
-  Widget _buildAlertCard(
-    BuildContext context,
-    String title,
-    String message,
-    IconData icon,
-    Color color,
-  ) {
-    return Card(
-      elevation: 2,
-      color: color.withValues(alpha: 0.08),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  Widget _alertCard(BuildContext context,
+      {required String emoji,
+      required String title,
+      required String message,
+      required Color color,
+      required Color borderColor,
+      required Color textColor}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor.withValues(alpha: 0.5)),
       ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 28)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                        fontFamily: 'Inter')),
+                const SizedBox(height: 2),
+                Text(message,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: textColor.withValues(alpha: 0.8),
+                        fontFamily: 'Inter')),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Section Title ─────────────────────────────────────────────────────────
+  Widget _sectionTitle(
+      BuildContext context, String title, String? actionText) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1B5E20),
+            fontFamily: 'Inter',
+          ),
+        ),
+        if (actionText != null)
+          Text(
+            actionText,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4CAF50),
+              fontFamily: 'Inter',
+            ),
+          ),
+      ],
     );
   }
 }

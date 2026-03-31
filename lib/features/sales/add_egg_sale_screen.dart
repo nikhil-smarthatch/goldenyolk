@@ -18,12 +18,11 @@ class AddEggSaleScreen extends ConsumerStatefulWidget {
 
 class _AddEggSaleScreenState extends ConsumerState<AddEggSaleScreen> {
   final _formKey = GlobalKey<FormState>();
-  late DateTime _date;
+  late DateTime _orderDate;
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _buyerController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  String _paymentStatus = 'paid';
   bool _isLoading = false;
 
   @override
@@ -31,14 +30,13 @@ class _AddEggSaleScreenState extends ConsumerState<AddEggSaleScreen> {
     super.initState();
     final sale = widget.sale;
     if (sale != null) {
-      _date = sale.date;
+      _orderDate = sale.orderDate;
       _quantityController.text = sale.quantity.toString();
       _priceController.text = sale.pricePerUnit.toString();
       _buyerController.text = sale.buyer ?? '';
       _notesController.text = sale.notes ?? '';
-      _paymentStatus = sale.paymentStatus;
     } else {
-      _date = DateTime.now();
+      _orderDate = DateTime.now();
     }
     
     // Listen to buyer changes to auto-fill price
@@ -82,37 +80,27 @@ class _AddEggSaleScreenState extends ConsumerState<AddEggSaleScreen> {
     try {
       final sale = EggSale(
         id: widget.sale?.id,
-        date: _date,
+        orderDate: _orderDate,
+        deliveryDate: widget.sale?.deliveryDate,
         quantity: int.parse(_quantityController.text.trim()),
         pricePerUnit: double.parse(_priceController.text.trim()),
         buyer: _buyerController.text.trim().isEmpty 
             ? null 
             : _buyerController.text.trim(),
-        paymentStatus: _paymentStatus,
+        status: widget.sale?.status ?? 'ordered',
         notes: _notesController.text.trim().isEmpty 
             ? null 
             : _notesController.text.trim(),
       );
 
       if (widget.sale != null) {
-        await ref.read(eggSalesProvider.notifier).updateSale(sale);
+        await ref.read(eggSalesProvider.notifier).updateOrder(sale);
       } else {
-        await ref.read(eggSalesProvider.notifier).addSale(sale);
+        await ref.read(eggSalesProvider.notifier).addOrder(sale);
       }
-
-      // Save/update customer price for future use
-      if (sale.buyer != null && sale.buyer!.isNotEmpty) {
-        await ref.read(customerPricingNotifierProvider.notifier)
-            .saveCustomerPrice(sale.buyer!, sale.pricePerUnit);
-      }
-
+      
       if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(widget.sale != null 
-              ? 'Sale updated' 
-              : 'Egg sale recorded')),
-        );
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -150,9 +138,9 @@ class _AddEggSaleScreenState extends ConsumerState<AddEggSaleScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DatePickerField(
-                label: 'Sale Date',
-                initialDate: _date,
-                onDateSelected: (date) => setState(() => _date = date),
+                label: 'Order Date',
+                initialDate: _orderDate,
+                onDateSelected: (date) => setState(() => _orderDate = date),
                 validator: (date) => Validators.dateNotInFuture(date),
               ),
               const SizedBox(height: 16),
@@ -187,7 +175,7 @@ class _AddEggSaleScreenState extends ConsumerState<AddEggSaleScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _priceController,
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: 'Price per Egg',
                         hintText: '0.00',
@@ -225,121 +213,28 @@ class _AddEggSaleScreenState extends ConsumerState<AddEggSaleScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildPaymentStatusSelector(),
-              const SizedBox(height: 16),
               TextFormField(
                 controller: _notesController,
-                maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: 'Notes (Optional)',
-                  alignLabelWithHint: true,
+                  labelText: 'Notes',
+                  hintText: 'Any additional details',
+                  prefixIcon: Icon(Icons.notes),
                 ),
+                maxLines: 3,
               ),
               const SizedBox(height: 24),
-              ElevatedButton.icon(
+              FilledButton(
                 onPressed: _isLoading ? null : _save,
-                icon: _isLoading
+                child: _isLoading
                     ? const SizedBox(
-                        width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
-                    : const Icon(Icons.save),
-                label: Text(_isLoading ? 'Saving...' : (isEditing ? 'Update Sale' : 'Record Sale')),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentStatusSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Payment Status',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _PaymentStatusOption(
-                label: 'Paid',
-                icon: Icons.check_circle,
-                isSelected: _paymentStatus == 'paid',
-                onTap: () => setState(() => _paymentStatus = 'paid'),
-                color: Colors.green,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _PaymentStatusOption(
-                label: 'Credit',
-                icon: Icons.schedule,
-                isSelected: _paymentStatus == 'credit',
-                onTap: () => setState(() => _paymentStatus = 'credit'),
-                color: Colors.orange,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _PaymentStatusOption extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final Color color;
-
-  const _PaymentStatusOption({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: isSelected ? color.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: isSelected ? color : Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-              width: isSelected ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? color : Theme.of(context).colorScheme.onSurfaceVariant,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? color : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+                    : Text(isEditing ? 'Update Order' : 'Create Order'),
               ),
             ],
           ),

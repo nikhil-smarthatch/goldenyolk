@@ -92,24 +92,14 @@ class DatabaseSeeder {
       final date = now.subtract(Duration(days: i));
       
       await db.insertEggSale(EggSale(
-        date: date,
+        orderDate: date,
         quantity: 60,
         pricePerUnit: 8.0,
         buyer: i % 4 == 0 ? 'Local Market' : 'Mr. Sharma',
-        paymentStatus: i % 6 == 0 ? 'credit' : 'paid',
-        notes: i % 6 == 0 ? 'Payment due next week' : null,
+        status: i % 6 == 0 ? 'ordered' : 'delivered',
+        notes: i % 6 == 0 ? 'Pending delivery' : null,
       ));
     }
-
-    // Seed Chicken Sales
-    await db.insertChickenSale(ChickenSale(
-      flockId: flock3.id,
-      date: now.subtract(const Duration(days: 5)),
-      quantity: 10,
-      pricePerBird: 350.0,
-      buyer: 'Restaurant ABC',
-      notes: 'Weekly delivery',
-    ));
 
     // Seed Feed Purchases
     await db.insertFeedPurchase(FeedPurchase(

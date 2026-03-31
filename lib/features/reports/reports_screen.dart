@@ -7,6 +7,7 @@ import '../../core/utils/date_helpers.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/app_colors.dart';
 import '../../widgets/widgets.dart';
+import 'monthly_report_screen.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -39,6 +40,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             _buildProductionReport(),
             const SizedBox(height: 24),
             _buildMonthlyEggCollectionReport(),
+            const SizedBox(height: 24),
+            _buildMonthlyDeliveredOrdersReport(),
             const SizedBox(height: 24),
             _buildMonthlySalesReport(),
             const SizedBox(height: 24),
@@ -546,6 +549,116 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
+  Widget _buildMonthlyDeliveredOrdersReport() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: DatabaseHelper.instance.getMonthlyDeliveredOrdersReport(
+        _endDate.year,
+        _endDate.month,
+      ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const LoadingShimmer(height: 200);
+        }
+
+        final data = snapshot.data!;
+        final deliveredQuantity = data['delivered_quantity'] as int? ?? 0;
+        final deliveredRevenue = data['delivered_revenue'] as double? ?? 0.0;
+        final deliveredOrders = data['delivered_orders'] as int? ?? 0;
+        final avgPrice = data['avg_price_per_egg'] as double? ?? 0.0;
+        final buyerBreakdown = data['buyer_breakdown'] as List<dynamic>? ?? [];
+
+        final settings = ref.watch(settingsProvider);
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.local_shipping, color: AppColors.success),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Monthly Delivered Orders',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatBox(
+                        context,
+                        'Delivered Orders',
+                        NumberFormatter.format(deliveredOrders),
+                        AppColors.success,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildStatBox(
+                        context,
+                        'Quantity',
+                        NumberFormatter.format(deliveredQuantity),
+                        AppColors.primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildStatBox(
+                        context,
+                        'Revenue',
+                        CurrencyFormatter.format(deliveredRevenue,
+                            symbol: settings.currencySymbol),
+                        AppColors.accentBlue,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildStatBox(
+                  context,
+                  'Average Price/Egg',
+                  CurrencyFormatter.format(avgPrice,
+                      symbol: settings.currencySymbol),
+                  AppColors.accentPurple,
+                ),
+                if (buyerBreakdown.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Top Buyers',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  ...buyerBreakdown.take(3).map((buyer) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(buyer['buyer'] as String? ?? 'Unknown'),
+                          ),
+                          Text(
+                            '${buyer['quantity']} eggs - ${CurrencyFormatter.format(buyer['revenue'] as double, symbol: settings.currencySymbol)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMonthlySalesReport() {
     return FutureBuilder<Map<String, dynamic>>(
       future: DatabaseHelper.instance.getMonthlySalesReport(
@@ -687,7 +800,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       subtitle: Text('$qty eggs', style: const TextStyle(fontSize: 12)),
                       trailing: Text(
                         CurrencyFormatter.format(revenue, symbol: settings.currencySymbol),
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.success,
                           fontSize: 14,
@@ -715,6 +828,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               ),
         ),
         const SizedBox(height: 12),
+        _buildReportTile(
+          context,
+          'Monthly Egg Report',
+          Icons.calendar_month,
+          AppColors.primaryGreen,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MonthlyReportScreen()),
+          ),
+        ),
         _buildReportTile(
           context,
           'FCR (Feed Conversion Ratio)',

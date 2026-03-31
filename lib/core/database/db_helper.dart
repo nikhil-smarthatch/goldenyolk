@@ -6,6 +6,7 @@ import '../models/models.dart';
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  static const int _databaseVersion = 2; // Incremented for new egg_sales schema
 
   DatabaseHelper._init();
 
@@ -21,12 +22,39 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: _databaseVersion,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
     );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Migrate egg_sales table to new order-delivery schema
+      await db.execute('''
+        ALTER TABLE egg_sales 
+        ADD COLUMN order_date TEXT
+      ''');
+      await db.execute('''
+        ALTER TABLE egg_sales 
+        ADD COLUMN delivery_date TEXT
+      ''');
+      await db.execute('''
+        ALTER TABLE egg_sales 
+        ADD COLUMN status TEXT DEFAULT 'ordered'
+      ''');
+      // Migrate existing data: set sale_date as order_date, mark as delivered
+      await db.execute('''
+        UPDATE egg_sales 
+        SET order_date = sale_date,
+            delivery_date = sale_date,
+            status = 'delivered'
+        WHERE order_date IS NULL
+      ''');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -72,11 +100,12 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE egg_sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL,
+        order_date TEXT NOT NULL,
+        delivery_date TEXT,
         quantity INTEGER NOT NULL,
         price_per_unit REAL NOT NULL,
         buyer TEXT,
-        payment_status TEXT NOT NULL DEFAULT 'paid',
+        status TEXT NOT NULL DEFAULT 'ordered',
         notes TEXT,
         created_at TEXT NOT NULL
       )
@@ -146,7 +175,7 @@ class DatabaseHelper {
       CREATE INDEX idx_egg_collection_date ON egg_collection(date)
     ''');
     await db.execute('''
-      CREATE INDEX idx_egg_sales_date ON egg_sales(date)
+      CREATE INDEX idx_egg_sales_order_date ON egg_sales(order_date)
     ''');
     await db.execute('''
       CREATE INDEX idx_chicken_sales_date ON chicken_sales(date)
@@ -289,24 +318,20 @@ class DatabaseHelper {
     return maps.map((map) => EggCollection.fromMap(map)).toList();
   }
 
-  Future<Map<String, dynamic>> getEggCollectionSummary(DateTime date) async {
+  Future<Map<String, dynamic>> getEggCollectionSummary() async {
     final db = await database;
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
-    
     final result = await db.rawQuery('''
       SELECT 
-        SUM(collected) as total_collected,
-        SUM(broken) as total_broken,
-        SUM(collected - broken) as total_good
-      FROM egg_collection 
-      WHERE date >= ? AND date < ?
-    ''', [startOfDay.toIso8601String(), endOfDay.toIso8601String()]);
-    
+        SUM(collected) as total_quantity,
+        COUNT(*) as total_records,
+        AVG(collected) as avg_quantity
+      FROM egg_collection
+    ''');
+
     return {
-      'collected': result.first['total_collected'] as int? ?? 0,
-      'broken': result.first['total_broken'] as int? ?? 0,
-      'good': result.first['total_good'] as int? ?? 0,
+      'total_quantity': result.first['total_quantity'] as int? ?? 0,
+      'total_records': result.first['total_records'] as int? ?? 0,
+      'avg_quantity': result.first['avg_quantity'] as double? ?? 0.0,
     };
   }
 
@@ -333,17 +358,18 @@ class DatabaseHelper {
 
   Future<List<EggSale>> getAllEggSales() async {
     final db = await database;
-    final maps = await db.query('egg_sales', orderBy: 'date DESC');
+    final maps = await db.query('egg_sales', orderBy: 'order_date DESC');
     return maps.map((map) => EggSale.fromMap(map)).toList();
   }
 
-  Future<List<EggSale>> getEggSalesByDateRange(DateTime start, DateTime end) async {
+  Future<List<EggSale>> getEggSalesByDateRange(
+      DateTime start, DateTime end) async {
     final db = await database;
     final maps = await db.query(
       'egg_sales',
-      where: 'date >= ? AND date <= ?',
+      where: 'order_date >= ? AND order_date <= ?',
       whereArgs: [start.toIso8601String(), end.toIso8601String()],
-      orderBy: 'date DESC',
+      orderBy: 'order_date DESC',
     );
     return maps.map((map) => EggSale.fromMap(map)).toList();
   }
@@ -352,29 +378,28 @@ class DatabaseHelper {
     final db = await database;
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
-    
+
     final result = await db.rawQuery('''
       SELECT 
         SUM(quantity) as total_quantity,
-        SUM(CASE WHEN payment_status = 'paid' THEN quantity * price_per_unit ELSE 0 END) as total_revenue,
-        SUM(CASE WHEN payment_status = 'credit' THEN quantity * price_per_unit ELSE 0 END) as credit_amount
+        SUM(CASE WHEN status = 'delivered' THEN quantity * price_per_unit ELSE 0 END) as total_revenue
       FROM egg_sales 
-      WHERE date >= ? AND date < ?
+      WHERE delivery_date >= ? AND delivery_date < ?
     ''', [startOfDay.toIso8601String(), endOfDay.toIso8601String()]);
-    
+
     return {
       'quantity': result.first['total_quantity'] as int? ?? 0,
       'revenue': result.first['total_revenue'] as double? ?? 0.0,
-      'credit': result.first['credit_amount'] as double? ?? 0.0,
     };
   }
 
   // Monthly Reports
-  Future<Map<String, dynamic>> getMonthlyEggCollectionReport(int year, int month) async {
+  Future<Map<String, dynamic>> getMonthlyEggCollectionReport(
+      int year, int month) async {
     final db = await database;
     final startDate = DateTime(year, month, 1);
     final endDate = DateTime(year, month + 1, 1);
-    
+
     final result = await db.rawQuery('''
       SELECT 
         SUM(collected) as total_collected,
@@ -385,7 +410,7 @@ class DatabaseHelper {
       FROM egg_collection 
       WHERE date >= ? AND date < ?
     ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
-    
+
     // Get daily breakdown
     final dailyResult = await db.rawQuery('''
       SELECT 
@@ -397,66 +422,111 @@ class DatabaseHelper {
       GROUP BY date
       ORDER BY date
     ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
-    
+
     return {
       'total_collected': result.first['total_collected'] as int? ?? 0,
       'total_broken': result.first['total_broken'] as int? ?? 0,
-      'total_good_eggs': ((result.first['total_collected'] as int? ?? 0) - (result.first['total_broken'] as int? ?? 0)),
+      'total_good_eggs': ((result.first['total_collected'] as int? ?? 0) -
+          (result.first['total_broken'] as int? ?? 0)),
       'active_flocks': result.first['active_flocks'] as int? ?? 0,
       'collection_days': result.first['collection_days'] as int? ?? 0,
-      'avg_daily_collection': result.first['avg_daily_collection'] as double? ?? 0.0,
+      'avg_daily_collection':
+          result.first['avg_daily_collection'] as double? ?? 0.0,
       'daily_breakdown': dailyResult,
     };
   }
 
-  Future<Map<String, dynamic>> getMonthlySalesReport(int year, int month) async {
+  Future<Map<String, dynamic>> getMonthlyDeliveredOrdersReport(
+      int year, int month) async {
     final db = await database;
     final startDate = DateTime(year, month, 1);
     final endDate = DateTime(year, month + 1, 1);
-    
+
+    final result = await db.rawQuery('''
+      SELECT 
+        SUM(quantity) as delivered_quantity,
+        SUM(quantity * price_per_unit) as delivered_revenue,
+        COUNT(*) as delivered_orders,
+        AVG(price_per_unit) as avg_price_per_egg
+      FROM egg_sales 
+      WHERE status = 'delivered' 
+        AND delivery_date >= ? AND delivery_date < ?
+    ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
+
+    final buyerResult = await db.rawQuery('''
+      SELECT 
+        buyer,
+        SUM(quantity) as quantity,
+        SUM(quantity * price_per_unit) as revenue
+      FROM egg_sales 
+      WHERE status = 'delivered' 
+        AND delivery_date >= ? AND delivery_date < ?
+        AND buyer IS NOT NULL
+      GROUP BY buyer
+      ORDER BY quantity DESC
+    ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
+
+    return {
+      'delivered_quantity': result.first['delivered_quantity'] as int? ?? 0,
+      'delivered_revenue': result.first['delivered_revenue'] as double? ?? 0.0,
+      'delivered_orders': result.first['delivered_orders'] as int? ?? 0,
+      'avg_price_per_egg': result.first['avg_price_per_egg'] as double? ?? 0.0,
+      'buyer_breakdown': buyerResult,
+    };
+  }
+
+  Future<Map<String, dynamic>> getMonthlySalesReport(
+      int year, int month) async {
+    final db = await database;
+    final startDate = DateTime(year, month, 1);
+    final endDate = DateTime(year, month + 1, 1);
+
+    // Uses new schema: order_date, delivery_date, status ('ordered'|'delivered'|'cancelled')
+    // "paid" = delivered orders, "credit" = still-ordered (pending) orders
     final result = await db.rawQuery('''
       SELECT 
         SUM(quantity) as total_quantity,
-        SUM(CASE WHEN payment_status = 'paid' THEN quantity * price_per_unit ELSE 0 END) as paid_revenue,
-        SUM(CASE WHEN payment_status = 'credit' THEN quantity * price_per_unit ELSE 0 END) as credit_amount,
+        SUM(CASE WHEN status = 'delivered' THEN quantity * price_per_unit ELSE 0 END) as paid_revenue,
+        SUM(CASE WHEN status = 'ordered' THEN quantity * price_per_unit ELSE 0 END) as credit_amount,
         COUNT(*) as total_sales,
-        COUNT(CASE WHEN payment_status = 'paid' THEN 1 END) as paid_sales,
-        COUNT(CASE WHEN payment_status = 'credit' THEN 1 END) as credit_sales,
+        COUNT(CASE WHEN status = 'delivered' THEN 1 END) as paid_sales,
+        COUNT(CASE WHEN status = 'ordered' THEN 1 END) as credit_sales,
         AVG(price_per_unit) as avg_price_per_egg
       FROM egg_sales 
-      WHERE date >= ? AND date < ?
+      WHERE order_date >= ? AND order_date < ?
     ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
-    
+
     // Get sales by buyer
     final buyerResult = await db.rawQuery('''
       SELECT 
         buyer,
         SUM(quantity) as quantity,
-        SUM(CASE WHEN payment_status = 'paid' THEN quantity * price_per_unit ELSE 0 END) as revenue,
+        SUM(CASE WHEN status = 'delivered' THEN quantity * price_per_unit ELSE 0 END) as revenue,
         COUNT(*) as sales_count
       FROM egg_sales 
-      WHERE date >= ? AND date < ? AND buyer IS NOT NULL
+      WHERE order_date >= ? AND order_date < ? AND buyer IS NOT NULL
       GROUP BY buyer
       ORDER BY revenue DESC
     ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
-    
+
     // Get daily breakdown
     final dailyResult = await db.rawQuery('''
       SELECT 
-        date,
+        order_date as date,
         SUM(quantity) as daily_quantity,
-        SUM(CASE WHEN payment_status = 'paid' THEN quantity * price_per_unit ELSE 0 END) as daily_revenue
+        SUM(CASE WHEN status = 'delivered' THEN quantity * price_per_unit ELSE 0 END) as daily_revenue
       FROM egg_sales 
-      WHERE date >= ? AND date < ?
-      GROUP BY date
-      ORDER BY date
+      WHERE order_date >= ? AND order_date < ?
+      GROUP BY order_date
+      ORDER BY order_date
     ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
-    
+
     return {
       'total_quantity': result.first['total_quantity'] as int? ?? 0,
       'paid_revenue': result.first['paid_revenue'] as double? ?? 0.0,
       'credit_amount': result.first['credit_amount'] as double? ?? 0.0,
-      'total_revenue': ((result.first['paid_revenue'] as double? ?? 0.0) + (result.first['credit_amount'] as double? ?? 0.0)),
+      'total_revenue': ((result.first['paid_revenue'] as double? ?? 0.0) +
+          (result.first['credit_amount'] as double? ?? 0.0)),
       'total_sales': result.first['total_sales'] as int? ?? 0,
       'paid_sales': result.first['paid_sales'] as int? ?? 0,
       'credit_sales': result.first['credit_sales'] as int? ?? 0,
@@ -481,6 +551,142 @@ class DatabaseHelper {
     return await db.delete('egg_sales', where: 'id = ?', whereArgs: [id]);
   }
 
+  // Inventory Management - Calculate remaining egg stock
+  /// Get total good eggs collected (all time or up to a date)
+  Future<int> getTotalEggsCollected({DateTime? upToDate}) async {
+    final db = await database;
+    final date = upToDate ?? DateTime.now();
+    final endOfDay = date.add(const Duration(days: 1));
+
+    final result = await db.rawQuery('''
+      SELECT COALESCE(SUM(collected - broken), 0) as total_good
+      FROM egg_collection
+      WHERE date < ?
+    ''', [endOfDay.toIso8601String()]);
+
+    return (result.first['total_good'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Get total eggs delivered (sold) up to a date
+  Future<int> getTotalEggsDelivered({DateTime? upToDate}) async {
+    final db = await database;
+    final date = upToDate ?? DateTime.now();
+    final endOfDay = date.add(const Duration(days: 1));
+
+    final result = await db.rawQuery('''
+      SELECT COALESCE(SUM(quantity), 0) as total_delivered
+      FROM egg_sales
+      WHERE status = 'delivered' AND delivery_date < ?
+    ''', [endOfDay.toIso8601String()]);
+
+    return (result.first['total_delivered'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Get remaining egg stock (collected - delivered)
+  Future<int> getRemainingEggStock() async {
+    final totalCollected = await getTotalEggsCollected();
+    final totalDelivered = await getTotalEggsDelivered();
+    return totalCollected - totalDelivered;
+  }
+
+  /// Get pending order count (eggs in ordered status)
+  Future<int> getPendingOrderEggCount() async {
+    final db = await database;
+
+    final result = await db.rawQuery('''
+      SELECT COALESCE(SUM(quantity), 0) as total_pending
+      FROM egg_sales
+      WHERE status = 'ordered'
+    ''');
+
+    return (result.first['total_pending'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Get complete inventory summary
+  Future<Map<String, int>> getInventorySummary() async {
+    final totalCollected = await getTotalEggsCollected();
+    final totalDelivered = await getTotalEggsDelivered();
+    final pending = await getPendingOrderEggCount();
+
+    return {
+      'total_collected': totalCollected,
+      'total_delivered': totalDelivered,
+      'remaining_stock': totalCollected - totalDelivered,
+      'pending_orders': pending,
+      'available_for_sale': totalCollected - totalDelivered - pending,
+    };
+  }
+
+  // Monthly Reports for Egg Management
+  /// Get comprehensive monthly egg report
+  Future<Map<String, dynamic>> getMonthlyEggReport(int year, int month) async {
+    final db = await database;
+    final startDate = DateTime(year, month, 1);
+    final endDate = DateTime(year, month + 1, 1);
+
+    // Eggs collected this month
+    final collectedResult = await db.rawQuery('''
+      SELECT 
+        COALESCE(SUM(collected), 0) as total_laid,
+        COALESCE(SUM(broken), 0) as total_broken,
+        COALESCE(SUM(collected - broken), 0) as total_good
+      FROM egg_collection
+      WHERE date >= ? AND date < ?
+    ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
+
+    // Eggs sold/delivered this month
+    final soldResult = await db.rawQuery('''
+      SELECT 
+        COALESCE(SUM(quantity), 0) as total_sold,
+        COALESCE(SUM(quantity * price_per_unit), 0) as total_revenue,
+        COUNT(*) as order_count
+      FROM egg_sales
+      WHERE status = 'delivered' 
+        AND delivery_date >= ? AND delivery_date < ?
+    ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
+
+    // Cumulative stock (all time up to end of this month)
+    final cumulativeResult = await db.rawQuery('''
+      SELECT 
+        COALESCE((SELECT SUM(collected - broken) FROM egg_collection WHERE date < ?), 0) -
+        COALESCE((SELECT SUM(quantity) FROM egg_sales WHERE status = 'delivered' AND delivery_date < ?), 0)
+        as remaining_stock
+    ''', [endDate.toIso8601String(), endDate.toIso8601String()]);
+
+    // Pending orders at month end
+    final pendingResult = await db.rawQuery('''
+      SELECT COALESCE(SUM(quantity), 0) as pending_eggs
+      FROM egg_sales
+      WHERE status = 'ordered' AND order_date < ?
+    ''', [endDate.toIso8601String()]);
+
+    // Daily breakdown for the month
+    final dailyResult = await db.rawQuery('''
+      SELECT 
+        date(date) as day,
+        SUM(collected) as laid,
+        SUM(broken) as broken,
+        SUM(collected - broken) as good
+      FROM egg_collection
+      WHERE date >= ? AND date < ?
+      GROUP BY day
+      ORDER BY day
+    ''', [startDate.toIso8601String(), endDate.toIso8601String()]);
+
+    return {
+      'year': year,
+      'month': month,
+      'eggs_laid': (collectedResult.first['total_good'] as num?)?.toInt() ?? 0,
+      'eggs_broken': (collectedResult.first['total_broken'] as num?)?.toInt() ?? 0,
+      'eggs_sold': (soldResult.first['total_sold'] as num?)?.toInt() ?? 0,
+      'revenue': (soldResult.first['total_revenue'] as num?)?.toDouble() ?? 0.0,
+      'order_count': (soldResult.first['order_count'] as num?)?.toInt() ?? 0,
+      'remaining_stock': (cumulativeResult.first['remaining_stock'] as num?)?.toInt() ?? 0,
+      'pending_orders': (pendingResult.first['pending_eggs'] as num?)?.toInt() ?? 0,
+      'daily_breakdown': dailyResult,
+    };
+  }
+
   // Customer pricing operations
   Future<double?> getCustomerPrice(String buyerName) async {
     final db = await database;
@@ -501,7 +707,7 @@ class DatabaseHelper {
     final db = await database;
     final normalizedName = buyerName.toLowerCase().trim();
     final now = DateTime.now();
-    
+
     await db.insert(
       'customer_pricing',
       {
@@ -636,7 +842,8 @@ class DatabaseHelper {
     return maps.map((map) => Expense.fromMap(map)).toList();
   }
 
-  Future<List<Expense>> getExpensesByDateRange(DateTime start, DateTime end) async {
+  Future<List<Expense>> getExpensesByDateRange(
+      DateTime start, DateTime end) async {
     final db = await database;
     final maps = await db.query(
       'expenses',
@@ -647,7 +854,8 @@ class DatabaseHelper {
     return maps.map((map) => Expense.fromMap(map)).toList();
   }
 
-  Future<Map<String, double>> getExpensesByCategory(DateTime start, DateTime end) async {
+  Future<Map<String, double>> getExpensesByCategory(
+      DateTime start, DateTime end) async {
     final db = await database;
     final result = await db.rawQuery('''
       SELECT category, SUM(amount) as total 
@@ -655,12 +863,12 @@ class DatabaseHelper {
       WHERE date >= ? AND date <= ?
       GROUP BY category
     ''', [start.toIso8601String(), end.toIso8601String()]);
-    
+
     return Map.fromEntries(
       result.map((row) => MapEntry(
-        row['category'] as String,
-        row['total'] as double,
-      )),
+            row['category'] as String,
+            row['total'] as double,
+          )),
     );
   }
 
@@ -684,7 +892,7 @@ class DatabaseHelper {
     final db = await database;
     final now = DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
-    
+
     final result = await db.rawQuery('''
       SELECT 
         date(date) as day,
@@ -694,15 +902,16 @@ class DatabaseHelper {
       GROUP BY day
       ORDER BY day
     ''', [weekAgo.toIso8601String()]);
-    
+
     return result;
   }
 
-  Future<List<Map<String, dynamic>>> getMonthlyEggProduction(int year, int month) async {
+  Future<List<Map<String, dynamic>>> getMonthlyEggProduction(
+      int year, int month) async {
     final db = await database;
     final start = DateTime(year, month, 1);
     final end = DateTime(year, month + 1, 1);
-    
+
     final result = await db.rawQuery('''
       SELECT 
         date(date) as day,
@@ -714,57 +923,69 @@ class DatabaseHelper {
       GROUP BY day
       ORDER BY day
     ''', [start.toIso8601String(), end.toIso8601String()]);
-    
+
     return result;
   }
 
-  Future<Map<String, dynamic>> getProfitLossSummary(DateTime start, DateTime end) async {
+  Future<Map<String, dynamic>> getProfitLossSummary(
+      DateTime start, DateTime end) async {
     final db = await database;
-    
+
+    // Uses new schema: status = 'delivered' means revenue realized
+    // status = 'ordered' means pending (credit equivalent)
     final eggSales = await db.rawQuery('''
-      SELECT COALESCE(SUM(quantity * price_per_unit), 0) as total 
+      SELECT COALESCE(SUM(CASE WHEN status = 'delivered' THEN quantity * price_per_unit ELSE 0 END), 0) as paid_total,
+             COALESCE(SUM(CASE WHEN status = 'ordered' THEN quantity * price_per_unit ELSE 0 END), 0) as credit_total
       FROM egg_sales 
-      WHERE date >= ? AND date <= ?
+      WHERE order_date >= ? AND order_date <= ?
     ''', [start.toIso8601String(), end.toIso8601String()]);
-    
+
     final chickenSales = await db.rawQuery('''
       SELECT COALESCE(SUM(quantity * price_per_bird), 0) as total 
       FROM chicken_sales 
       WHERE date >= ? AND date <= ?
     ''', [start.toIso8601String(), end.toIso8601String()]);
-    
+
     final feedCosts = await db.rawQuery('''
       SELECT COALESCE(SUM(quantity_kg * price_per_unit), 0) as total 
       FROM feed_purchases 
       WHERE date >= ? AND date <= ?
     ''', [start.toIso8601String(), end.toIso8601String()]);
-    
+
     final otherExpenses = await db.rawQuery('''
       SELECT COALESCE(SUM(amount), 0) as total 
       FROM expenses 
       WHERE date >= ? AND date <= ?
     ''', [start.toIso8601String(), end.toIso8601String()]);
-    
-    final revenue = (eggSales.first['total'] as num).toDouble() + 
-                    (chickenSales.first['total'] as num).toDouble();
-    final expenses = (feedCosts.first['total'] as num).toDouble() + 
-                     (otherExpenses.first['total'] as num).toDouble();
-    
+
+    final paidRevenue = (eggSales.first['paid_total'] as num).toDouble() +
+        (chickenSales.first['total'] as num).toDouble();
+    final creditAmount = (eggSales.first['credit_total'] as num).toDouble();
+    final totalRevenue = paidRevenue + creditAmount;
+    final expenses = (feedCosts.first['total'] as num).toDouble() +
+        (otherExpenses.first['total'] as num).toDouble();
+
     return {
-      'egg_sales': (eggSales.first['total'] as num).toDouble(),
+      'egg_sales': (eggSales.first['paid_total'] as num).toDouble(),
+      'egg_sales_paid': (eggSales.first['paid_total'] as num).toDouble(),
+      'egg_sales_credit': creditAmount,
+      'egg_sales_total': totalRevenue,
       'chicken_sales': (chickenSales.first['total'] as num).toDouble(),
-      'total_revenue': revenue,
+      'total_revenue': paidRevenue, // Only delivered sales count as realized revenue
+      'total_revenue_with_credit':
+          totalRevenue, // Total including pending orders
       'feed_costs': (feedCosts.first['total'] as num).toDouble(),
       'other_expenses': (otherExpenses.first['total'] as num).toDouble(),
       'total_expenses': expenses,
-      'profit_loss': revenue - expenses,
+      'profit_loss':
+          paidRevenue - expenses, // Profit based only on delivered revenue
     };
   }
 
   // Backup and restore
   Future<Map<String, List<Map<String, dynamic>>>> exportAllData() async {
     final db = await database;
-    
+
     return {
       'flocks': await db.query('flocks'),
       'mortality_log': await db.query('mortality_log'),
@@ -777,9 +998,10 @@ class DatabaseHelper {
     };
   }
 
-  Future<void> importAllData(Map<String, List<Map<String, dynamic>>> data) async {
+  Future<void> importAllData(
+      Map<String, List<Map<String, dynamic>>> data) async {
     final db = await database;
-    
+
     await db.transaction((txn) async {
       // Clear existing data
       await txn.delete('expenses');
@@ -790,7 +1012,7 @@ class DatabaseHelper {
       await txn.delete('egg_collection');
       await txn.delete('mortality_log');
       await txn.delete('flocks');
-      
+
       // Import new data
       for (final row in data['flocks'] ?? []) {
         await txn.insert('flocks', row);

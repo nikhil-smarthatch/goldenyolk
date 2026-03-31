@@ -7,7 +7,6 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/app_colors.dart';
 import '../../widgets/widgets.dart';
 import 'add_egg_sale_screen.dart';
-import 'add_chicken_sale_screen.dart';
 
 class SalesScreen extends ConsumerStatefulWidget {
   const SalesScreen({super.key});
@@ -40,8 +39,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Egg Sales'),
-            Tab(text: 'Chicken Sales'),
+            Tab(text: 'Orders'),
+            Tab(text: 'Delivered'),
             Tab(text: 'Pending'),
           ],
         ),
@@ -49,19 +48,47 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildEggSalesTab(),
-          _buildChickenSalesTab(),
-          _buildPendingPaymentsTab(),
+          _buildOrdersTab(),
+          _buildDeliveredTab(),
+          _buildPendingTab(),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddSaleDialog(context),
-        child: const Icon(Icons.add),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddOrderDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('New Order'),
       ),
     );
   }
 
-  Widget _buildEggSalesTab() {
+  void _showAddOrderDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.egg),
+              title: const Text('Create Order'),
+              subtitle: const Text('Create a new egg order from customer'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AddEggSaleScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrdersTab() {
     final eggSalesAsync = ref.watch(eggSalesProvider);
     final settings = ref.watch(settingsProvider);
 
@@ -72,8 +99,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
           if (sales.isEmpty) {
             return const EmptyState(
               icon: Icons.egg_outlined,
-              title: 'No Egg Sales',
-              subtitle: 'Record your egg sales to track revenue',
+              title: 'No Orders',
+              subtitle: 'Create orders from customers to track sales',
             );
           }
 
@@ -82,7 +109,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
             itemCount: sales.length,
             itemBuilder: (context, index) {
               final sale = sales[index];
-              return _buildEggSaleCard(context, sale, settings.currencySymbol);
+              return _buildOrderCard(context, sale, settings.currencySymbol);
             },
           );
         },
@@ -92,7 +119,69 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
     );
   }
 
-  Widget _buildEggSaleCard(
+  Widget _buildDeliveredTab() {
+    final deliveredAsync = ref.watch(deliveredOrdersProvider);
+    final settings = ref.watch(settingsProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(eggSalesProvider),
+      child: deliveredAsync.when(
+        data: (sales) {
+          if (sales.isEmpty) {
+            return const EmptyState(
+              icon: Icons.local_shipping,
+              title: 'No Delivered Orders',
+              subtitle: 'Mark orders as delivered to see them here',
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: sales.length,
+            itemBuilder: (context, index) {
+              final sale = sales[index];
+              return _buildOrderCard(context, sale, settings.currencySymbol);
+            },
+          );
+        },
+        loading: () => const CardShimmer(count: 3),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+      ),
+    );
+  }
+
+  Widget _buildPendingTab() {
+    final pendingAsync = ref.watch(pendingOrdersProvider);
+    final settings = ref.watch(settingsProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(eggSalesProvider),
+      child: pendingAsync.when(
+        data: (sales) {
+          if (sales.isEmpty) {
+            return const EmptyState(
+              icon: Icons.check_circle_outline,
+              title: 'No Pending Orders',
+              subtitle: 'All orders have been delivered!',
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: sales.length,
+            itemBuilder: (context, index) {
+              final sale = sales[index];
+              return _buildOrderCard(context, sale, settings.currencySymbol);
+            },
+          );
+        },
+        loading: () => const CardShimmer(count: 3),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+      ),
+    );
+  }
+
+  Widget _buildOrderCard(
       BuildContext context, dynamic sale, String currencySymbol) {
     return SwipeableListItem(
       onEdit: () {
@@ -104,9 +193,9 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
         );
       },
       onDelete: () async {
-        await ref.read(eggSalesProvider.notifier).deleteSale(sale.id);
+        await ref.read(eggSalesProvider.notifier).deleteOrder(sale.id);
       },
-      confirmDeleteMessage: 'Delete this egg sale record?',
+      confirmDeleteMessage: 'Delete this order?',
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -130,32 +219,36 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
                       children: [
                         Text(
                           sale.buyer ?? 'Unknown Buyer',
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                         Text(
-                          DateHelpers.formatDateTime(sale.date),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
+                          DateHelpers.formatDateTime(sale.orderDate),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
                         ),
                       ],
                     ),
                   ),
                   StatusChip(
-                    status: sale.paymentStatus == 'paid' ? 'Paid' : 'Credit',
-                    color: sale.paymentStatus == 'paid'
+                    status: sale.status == 'delivered'
+                        ? 'Delivered'
+                        : sale.status == 'cancelled'
+                            ? 'Cancelled'
+                            : 'Ordered',
+                    color: sale.status == 'delivered'
                         ? AppColors.success
-                        : AppColors.warning,
+                        : sale.status == 'cancelled'
+                            ? AppColors.error
+                            : AppColors.warning,
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -184,221 +277,34 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
                   ),
                 ],
               ),
+              if (sale.isOrdered) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      await ref
+                          .read(eggSalesProvider.notifier)
+                          .markAsDelivered(sale.id!);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Order marked as delivered')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.local_shipping),
+                    label: const Text('Mark Delivered'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildChickenSalesTab() {
-    final chickenSalesAsync = ref.watch(chickenSalesProvider);
-    final settings = ref.watch(settingsProvider);
-
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(chickenSalesProvider),
-      child: chickenSalesAsync.when(
-        data: (sales) {
-          if (sales.isEmpty) {
-            return const EmptyState(
-              icon: Icons.pets_outlined,
-              title: 'No Chicken Sales',
-              subtitle: 'Record chicken sales to track revenue',
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: sales.length,
-            itemBuilder: (context, index) {
-              final sale = sales[index];
-              return _buildChickenSaleCard(
-                  context, sale, settings.currencySymbol);
-            },
-          );
-        },
-        loading: () => const CardShimmer(count: 3),
-        error: (error, stack) => Center(child: Text('Error: $error')),
-      ),
-    );
-  }
-
-  Widget _buildChickenSaleCard(
-      BuildContext context, dynamic sale, String currencySymbol) {
-    return SwipeableListItem(
-      onEdit: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AddChickenSaleScreen(sale: sale),
-          ),
-        );
-      },
-      onDelete: () async {
-        await ref.read(chickenSalesProvider.notifier).deleteSale(sale.id);
-      },
-      confirmDeleteMessage: 'Delete this chicken sale record?',
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentOrange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child:
-                        const Icon(Icons.pets, color: AppColors.accentOrange),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          sale.buyer ?? 'Unknown Buyer',
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                        Text(
-                          DateHelpers.formatDateTime(sale.date),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStat(
-                      context,
-                      'Quantity',
-                      '${sale.quantity} birds',
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildStat(
-                      context,
-                      'Price/Bird',
-                      CurrencyFormatter.format(sale.pricePerBird,
-                          symbol: currencySymbol),
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildStat(
-                      context,
-                      'Total',
-                      CurrencyFormatter.format(sale.totalAmount,
-                          symbol: currencySymbol),
-                      isBold: true,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPendingPaymentsTab() {
-    final pendingAsync = ref.watch(pendingPaymentsProvider);
-    final settings = ref.watch(settingsProvider);
-
-    return pendingAsync.when(
-      data: (sales) {
-        if (sales.isEmpty) {
-          return const EmptyState(
-            icon: Icons.check_circle_outline,
-            title: 'No Pending Payments',
-            subtitle: 'All payments are up to date!',
-          );
-        }
-
-        final totalPending = sales.fold<double>(
-          0,
-          (sum, sale) => sum + sale.totalAmount,
-        );
-
-        return Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning, color: AppColors.warning),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Pending',
-                          style: TextStyle(
-                              color: AppColors.warning.withValues(alpha: 0.8)),
-                        ),
-                        Text(
-                          CurrencyFormatter.format(totalPending,
-                              symbol: settings.currencySymbol),
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.warning,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: sales.length,
-                itemBuilder: (context, index) {
-                  final sale = sales[index];
-                  return _buildPendingCard(
-                      context, sale, settings.currencySymbol);
-                },
-              ),
-            ),
-          ],
-        );
-      },
-      loading: () => const CardShimmer(count: 2),
-      error: (error, stack) => Center(child: Text('Error: $error')),
-    );
-  }
-
-  Widget _buildPendingCard(
-      BuildContext context, dynamic sale, String currencySymbol) {
-    return _PendingCard(
-      sale: sale,
-      currencySymbol: currencySymbol,
     );
   }
 
@@ -412,7 +318,6 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
                 fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
               ),
         ),
-        const SizedBox(height: 2),
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -420,120 +325,6 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
               ),
         ),
       ],
-    );
-  }
-
-  void _showAddSaleDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.egg),
-              title: const Text('Add Egg Sale'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddEggSaleScreen()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.pets),
-              title: const Text('Add Chicken Sale'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const AddChickenSaleScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PendingCard extends ConsumerStatefulWidget {
-  final dynamic sale;
-  final String currencySymbol;
-
-  const _PendingCard({
-    required this.sale,
-    required this.currencySymbol,
-  });
-
-  @override
-  ConsumerState<_PendingCard> createState() => _PendingCardState();
-}
-
-class _PendingCardState extends ConsumerState<_PendingCard> {
-  bool _isLoading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final sale = widget.sale;
-    final currencySymbol = widget.currencySymbol;
-
-    return Card(
-      color: AppColors.warning.withValues(alpha: 0.05),
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: AppColors.warning,
-          child: Icon(Icons.schedule, color: Colors.white),
-        ),
-        title: Text(sale.buyer ?? 'Unknown'),
-        subtitle: Text(DateHelpers.formatDate(sale.date)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              CurrencyFormatter.format(sale.totalAmount,
-                  symbol: currencySymbol),
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.warning,
-                  ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: _isLoading
-                  ? null
-                  : () async {
-                      setState(() => _isLoading = true);
-                      try {
-                        await ref
-                            .read(eggSalesProvider.notifier)
-                            .markAsPaid(sale.id);
-                      } finally {
-                        if (mounted) {
-                          setState(() => _isLoading = false);
-                        }
-                      }
-                    },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.success,
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Mark Paid'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
