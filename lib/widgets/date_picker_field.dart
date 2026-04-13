@@ -8,6 +8,7 @@ class DatePickerField extends StatefulWidget {
   final String label;
   final ValueChanged<DateTime>? onDateSelected;
   final String? Function(DateTime?)? validator;
+  final bool allowFuture; // FIX: allow future dates
 
   const DatePickerField({
     super.key,
@@ -17,6 +18,7 @@ class DatePickerField extends StatefulWidget {
     required this.label,
     this.onDateSelected,
     this.validator,
+    this.allowFuture = false, // FIX: default false for backward compatibility
   });
 
   @override
@@ -55,7 +57,9 @@ class _DatePickerFieldState extends State<DatePickerField> {
       context: context,
       initialDate: _selectedDate ?? now,
       firstDate: widget.firstDate ?? DateTime(2000),
-      lastDate: widget.lastDate ?? now,
+      lastDate: widget.allowFuture 
+          ? (widget.lastDate ?? DateTime(2100)) // FIX: allow future dates
+          : (widget.lastDate ?? now),
     );
 
     if (picked != null) {

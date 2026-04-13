@@ -6,12 +6,12 @@ final eggCollectionProvider = StateNotifierProvider<EggCollectionNotifier, Async
   return EggCollectionNotifier(ref);
 });
 
-final todayEggCollectionProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final todayEggCollectionProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final db = DatabaseHelper.instance;
   return await db.getEggCollectionSummary();
 });
 
-final weeklyEggProductionProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final weeklyEggProductionProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final db = DatabaseHelper.instance;
   return await db.getWeeklyEggProduction();
 });
@@ -44,6 +44,9 @@ class EggCollectionNotifier extends StateNotifier<AsyncValue<List<EggCollection>
       _ref.invalidate(weeklyEggProductionProvider);
       _ref.invalidate(remainingStockProvider);
       _ref.invalidate(inventorySummaryProvider);
+      // Invalidate monthly report for current month
+      final now = DateTime.now();
+      _ref.invalidate(monthlyEggReportProvider((year: now.year, month: now.month)));
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -57,6 +60,9 @@ class EggCollectionNotifier extends StateNotifier<AsyncValue<List<EggCollection>
       _ref.invalidate(weeklyEggProductionProvider);
       _ref.invalidate(remainingStockProvider);
       _ref.invalidate(inventorySummaryProvider);
+      // Invalidate monthly report for current month
+      final now = DateTime.now();
+      _ref.invalidate(monthlyEggReportProvider((year: now.year, month: now.month)));
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -70,6 +76,9 @@ class EggCollectionNotifier extends StateNotifier<AsyncValue<List<EggCollection>
       _ref.invalidate(weeklyEggProductionProvider);
       _ref.invalidate(remainingStockProvider);
       _ref.invalidate(inventorySummaryProvider);
+      // Invalidate monthly report for current month
+      final now = DateTime.now();
+      _ref.invalidate(monthlyEggReportProvider((year: now.year, month: now.month)));
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -93,19 +102,19 @@ class EggCollectionNotifier extends StateNotifier<AsyncValue<List<EggCollection>
 // Inventory Management Providers
 
 /// Remaining egg stock (total collected - total delivered)
-final remainingStockProvider = FutureProvider<int>((ref) async {
+final remainingStockProvider = FutureProvider.autoDispose<int>((ref) async {
   final db = DatabaseHelper.instance;
   return await db.getRemainingEggStock();
 });
 
 /// Complete inventory summary
-final inventorySummaryProvider = FutureProvider<Map<String, int>>((ref) async {
+final inventorySummaryProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
   final db = DatabaseHelper.instance;
   return await db.getInventorySummary();
 });
 
 /// Pending order egg count
-final pendingOrderEggCountProvider = FutureProvider<int>((ref) async {
+final pendingOrderEggCountProvider = FutureProvider.autoDispose<int>((ref) async {
   final db = DatabaseHelper.instance;
   return await db.getPendingOrderEggCount();
 });

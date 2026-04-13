@@ -127,7 +127,7 @@ class _MonthlyReportScreenState extends ConsumerState<MonthlyReportScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
           ),
         ],
@@ -236,7 +236,7 @@ class _MonthlyReportScreenState extends ConsumerState<MonthlyReportScreen> {
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2E7D32).withOpacity(0.3),
+                color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -318,7 +318,7 @@ class _MonthlyReportScreenState extends ConsumerState<MonthlyReportScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: textColor.withOpacity(0.08),
+            color: textColor.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -374,7 +374,7 @@ class _MonthlyReportScreenState extends ConsumerState<MonthlyReportScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
           ),
         ],
@@ -458,7 +458,7 @@ class _MonthlyReportScreenState extends ConsumerState<MonthlyReportScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
           ),
         ],

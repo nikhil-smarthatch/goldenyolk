@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/sales_provider.dart';
+import '../../core/providers/egg_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/utils/date_helpers.dart';
 import '../../core/utils/formatters.dart';
@@ -22,7 +23,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -42,6 +43,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
             Tab(text: 'Orders'),
             Tab(text: 'Delivered'),
             Tab(text: 'Pending'),
+            Tab(text: 'Monthly'),
           ],
         ),
       ),
@@ -51,6 +53,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
           _buildOrdersTab(),
           _buildDeliveredTab(),
           _buildPendingTab(),
+          _buildMonthlyTab(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -181,6 +184,204 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
     );
   }
 
+  Widget _buildMonthlyTab() {
+    final eggSalesAsync = ref.watch(eggSalesProvider);
+    final settings = ref.watch(settingsProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(eggSalesProvider),
+      child: eggSalesAsync.when(
+        data: (sales) {
+          if (sales.isEmpty) {
+            return const EmptyState(
+              icon: Icons.calendar_month,
+              title: 'No Sales Data',
+              subtitle: 'Create orders to see monthly summaries',
+            );
+          }
+
+          // Group sales by month
+          final monthlyData = <String, Map<String, dynamic>>{};
+          for (final sale in sales) {
+            final key = '${sale.orderDate.year}-${sale.orderDate.month.toString().padLeft(2, '0')}';
+            if (!monthlyData.containsKey(key)) {
+              monthlyData[key] = {
+                'year': sale.orderDate.year,
+                'month': sale.orderDate.month,
+                'monthName': DateHelpers.formatMonthYear(sale.orderDate),
+                'orders': <dynamic>[],
+                'totalQuantity': 0,
+                'totalRevenue': 0.0,
+                'deliveredQuantity': 0,
+                'deliveredRevenue': 0.0,
+                'pendingQuantity': 0,
+                'pendingRevenue': 0.0,
+              };
+            }
+            monthlyData[key]!['orders'].add(sale);
+            monthlyData[key]!['totalQuantity'] += sale.quantity;
+            monthlyData[key]!['totalRevenue'] += sale.totalAmount;
+            
+            if (sale.status == 'delivered') {
+              monthlyData[key]!['deliveredQuantity'] += sale.quantity;
+              monthlyData[key]!['deliveredRevenue'] += sale.totalAmount;
+            } else if (sale.status == 'ordered') {
+              monthlyData[key]!['pendingQuantity'] += sale.quantity;
+              monthlyData[key]!['pendingRevenue'] += sale.totalAmount;
+            }
+          }
+
+          // Sort by date descending
+          final sortedKeys = monthlyData.keys.toList()
+            ..sort((a, b) => b.compareTo(a));
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: sortedKeys.length,
+            itemBuilder: (context, index) {
+              final key = sortedKeys[index];
+              final data = monthlyData[key]!;
+              return _buildMonthlyCard(context, data, settings.currencySymbol);
+            },
+          );
+        },
+        loading: () => const CardShimmer(count: 3),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+      ),
+    );
+  }
+
+  Widget _buildMonthlyCard(BuildContext context, Map<String, dynamic> data, String currencySymbol) {
+    final monthName = data['monthName'] as String;
+    final totalQuantity = data['totalQuantity'] as int;
+    final totalRevenue = data['totalRevenue'] as double;
+    final deliveredQuantity = data['deliveredQuantity'] as int;
+    final pendingQuantity = data['pendingQuantity'] as int;
+    final pendingRevenue = data['pendingRevenue'] as double;
+    final orderCount = (data['orders'] as List).length;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.calendar_month, color: AppColors.accentBlue),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        monthName,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      Text(
+                        '$orderCount orders',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  CurrencyFormatter.format(totalRevenue, symbol: currencySymbol),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.success,
+                      ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMonthlyStat(
+                    context,
+                    'Total Eggs',
+                    '$totalQuantity',
+                    AppColors.primaryGreen,
+                  ),
+                ),
+                Expanded(
+                  child: _buildMonthlyStat(
+                    context,
+                    'Delivered',
+                    '$deliveredQuantity',
+                    AppColors.success,
+                  ),
+                ),
+                Expanded(
+                  child: _buildMonthlyStat(
+                    context,
+                    'Pending',
+                    '$pendingQuantity',
+                    AppColors.warning,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMonthlyStat(
+                    context,
+                    'Total Revenue',
+                    CurrencyFormatter.format(totalRevenue, symbol: currencySymbol),
+                    AppColors.success,
+                  ),
+                ),
+                Expanded(
+                  child: _buildMonthlyStat(
+                    context,
+                    'Pending Revenue',
+                    CurrencyFormatter.format(pendingRevenue, symbol: currencySymbol),
+                    AppColors.warning,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthlyStat(BuildContext context, String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildOrderCard(
       BuildContext context, dynamic sale, String currencySymbol) {
     return SwipeableListItem(
@@ -283,6 +484,30 @@ class _SalesScreenState extends ConsumerState<SalesScreen>
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: () async {
+                      // Check remaining stock first
+                      final remainingStock = await ref.read(remainingStockProvider.future);
+                      if (remainingStock < sale.quantity) {
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Insufficient Stock'),
+                              content: Text(
+                                'Only $remainingStock eggs remaining in stock. '
+                                'Cannot deliver ${sale.quantity} eggs for this order.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return;
+                      }
+                      
                       await ref
                           .read(eggSalesProvider.notifier)
                           .markAsDelivered(sale.id!);

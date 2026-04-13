@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../../core/database/db_helper.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/utils/date_helpers.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/app_colors.dart';
+import '../../core/services/data_export_service.dart';
+import '../../core/services/error_logger.dart';
 import '../../widgets/widgets.dart';
 import 'monthly_report_screen.dart';
 
@@ -37,11 +38,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             const SizedBox(height: 24),
             _buildProfitLossCard(settings.currencySymbol),
             const SizedBox(height: 24),
-            _buildProductionReport(),
-            const SizedBox(height: 24),
             _buildMonthlyEggCollectionReport(),
-            const SizedBox(height: 24),
-            _buildMonthlyDeliveredOrdersReport(),
             const SizedBox(height: 24),
             _buildMonthlySalesReport(),
             const SizedBox(height: 24),
@@ -136,12 +133,30 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       future:
           DatabaseHelper.instance.getProfitLossSummary(_startDate, _endDate),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline,
+                      color: AppColors.error, size: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Error loading profit/loss data',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         if (!snapshot.hasData) {
           return const LoadingShimmer(height: 200);
         }
 
         final data = snapshot.data!;
-        final profit = data['profit_loss'] as double;
+        final profit = (data['profit_loss'] as num?)?.toDouble() ?? 0.0;
         final isProfit = profit >= 0;
 
         return Card(
@@ -205,7 +220,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 _buildFinancialRow(
                   context,
                   'Total Revenue',
-                  data['total_revenue'] as double,
+                  (data['total_revenue'] as num?)?.toDouble() ?? 0.0,
                   currencySymbol,
                   isPositive: true,
                 ),
@@ -213,15 +228,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 _buildFinancialRow(
                   context,
                   '  Egg Sales',
-                  data['egg_sales'] as double,
-                  currencySymbol,
-                  isSubItem: true,
-                ),
-                const SizedBox(height: 8),
-                _buildFinancialRow(
-                  context,
-                  '  Chicken Sales',
-                  data['chicken_sales'] as double,
+                  (data['egg_sales'] as num?)?.toDouble() ?? 0.0,
                   currencySymbol,
                   isSubItem: true,
                 ),
@@ -229,7 +236,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 _buildFinancialRow(
                   context,
                   'Total Expenses',
-                  data['total_expenses'] as double,
+                  (data['total_expenses'] as num?)?.toDouble() ?? 0.0,
                   currencySymbol,
                   isPositive: false,
                 ),
@@ -237,7 +244,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 _buildFinancialRow(
                   context,
                   '  Feed Costs',
-                  data['feed_costs'] as double,
+                  (data['feed_costs'] as num?)?.toDouble() ?? 0.0,
                   currencySymbol,
                   isSubItem: true,
                 ),
@@ -245,7 +252,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 _buildFinancialRow(
                   context,
                   '  Other Expenses',
-                  data['other_expenses'] as double,
+                  (data['other_expenses'] as num?)?.toDouble() ?? 0.0,
                   currencySymbol,
                   isSubItem: true,
                 ),
@@ -288,170 +295,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
-  Widget _buildProductionReport() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: DatabaseHelper.instance.getMonthlyEggProduction(
-        _endDate.year,
-        _endDate.month,
-      ),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const LoadingShimmer(height: 250);
-        }
-
-        final data = snapshot.data!;
-        final totalCollected = data.fold<int>(
-          0,
-          (sum, item) => sum + (item['collected'] as int? ?? 0),
-        );
-        final totalGood = data.fold<int>(
-          0,
-          (sum, item) => sum + (item['good_eggs'] as int? ?? 0),
-        );
-        final avgDaily = data.isEmpty ? 0 : totalGood / data.length;
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Egg Production - ${DateHelpers.formatMonthYear(_endDate)}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatBox(
-                        context,
-                        'Total Eggs',
-                        NumberFormatter.format(totalCollected),
-                        AppColors.primaryGreen,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatBox(
-                        context,
-                        'Good Eggs',
-                        NumberFormatter.format(totalGood),
-                        AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatBox(
-                        context,
-                        'Daily Avg',
-                        CurrencyFormatter.formatSimple(avgDaily.toDouble()),
-                        AppColors.accentBlue,
-                      ),
-                    ),
-                  ],
-                ),
-                if (data.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 150,
-                    child: _buildMonthlyBarChart(data),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatBox(
-      BuildContext context, String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color.withValues(alpha: 0.8),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMonthlyBarChart(List<Map<String, dynamic>> data) {
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: (data
-                        .map((e) => e['good_eggs'] as int? ?? 0)
-                        .reduce((a, b) => a > b ? a : b) /
-                    10)
-                .ceil() *
-            10.0,
-        barGroups: data.asMap().entries.map((entry) {
-          final index = entry.key;
-          final item = entry.value;
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: (item['good_eggs'] as int? ?? 0).toDouble(),
-                color: AppColors.accentYellow,
-                width: 12,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(4)),
-              ),
-            ],
-          );
-        }).toList(),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 40,
-              getTitlesWidget: (value, meta) {
-                if (value % 20 == 0) {
-                  return Text(
-                    value.toInt().toString(),
-                    style: const TextStyle(fontSize: 10),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ),
-          bottomTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        gridData: const FlGridData(show: false),
-        borderData: FlBorderData(show: false),
-      ),
-    );
-  }
-
   Widget _buildMonthlyEggCollectionReport() {
     return FutureBuilder<Map<String, dynamic>>(
       future: DatabaseHelper.instance.getMonthlyEggCollectionReport(
@@ -459,6 +302,24 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         _endDate.month,
       ),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline,
+                      color: AppColors.error, size: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Error loading collection data',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         if (!snapshot.hasData) {
           return const LoadingShimmer(height: 200);
         }
@@ -549,113 +410,32 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
-  Widget _buildMonthlyDeliveredOrdersReport() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: DatabaseHelper.instance.getMonthlyDeliveredOrdersReport(
-        _endDate.year,
-        _endDate.month,
+  Widget _buildStatBox(
+      BuildContext context, String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
       ),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const LoadingShimmer(height: 200);
-        }
-
-        final data = snapshot.data!;
-        final deliveredQuantity = data['delivered_quantity'] as int? ?? 0;
-        final deliveredRevenue = data['delivered_revenue'] as double? ?? 0.0;
-        final deliveredOrders = data['delivered_orders'] as int? ?? 0;
-        final avgPrice = data['avg_price_per_egg'] as double? ?? 0.0;
-        final buyerBreakdown = data['buyer_breakdown'] as List<dynamic>? ?? [];
-
-        final settings = ref.watch(settingsProvider);
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.local_shipping, color: AppColors.success),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Monthly Delivered Orders',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ],
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: color,
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatBox(
-                        context,
-                        'Delivered Orders',
-                        NumberFormatter.format(deliveredOrders),
-                        AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildStatBox(
-                        context,
-                        'Quantity',
-                        NumberFormatter.format(deliveredQuantity),
-                        AppColors.primaryGreen,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildStatBox(
-                        context,
-                        'Revenue',
-                        CurrencyFormatter.format(deliveredRevenue,
-                            symbol: settings.currencySymbol),
-                        AppColors.accentBlue,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildStatBox(
-                  context,
-                  'Average Price/Egg',
-                  CurrencyFormatter.format(avgPrice,
-                      symbol: settings.currencySymbol),
-                  AppColors.accentPurple,
-                ),
-                if (buyerBreakdown.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    'Top Buyers',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  ...buyerBreakdown.take(3).map((buyer) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(buyer['buyer'] as String? ?? 'Unknown'),
-                          ),
-                          Text(
-                            '${buyer['quantity']} eggs - ${CurrencyFormatter.format(buyer['revenue'] as double, symbol: settings.currencySymbol)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ],
-            ),
           ),
-        );
-      },
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color.withValues(alpha: 0.8),
+                ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -666,19 +446,37 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         _endDate.month,
       ),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline,
+                      color: AppColors.error, size: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Error loading sales data',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         if (!snapshot.hasData) {
           return const LoadingShimmer(height: 200);
         }
 
         final data = snapshot.data!;
-        final totalQuantity = data['total_quantity'] as int;
-        final paidRevenue = data['paid_revenue'] as double;
-        final creditAmount = data['credit_amount'] as double;
-        final totalSales = data['total_sales'] as int;
-        final paidSales = data['paid_sales'] as int;
-        final creditSales = data['credit_sales'] as int;
-        final avgPrice = data['avg_price_per_egg'] as double;
-        final buyerBreakdown = data['buyer_breakdown'] as List<dynamic>;
+        final totalQuantity = (data['total_quantity'] as num?)?.toInt() ?? 0;
+        final paidRevenue = (data['paid_revenue'] as num?)?.toDouble() ?? 0.0;
+        final creditAmount = (data['credit_amount'] as num?)?.toDouble() ?? 0.0;
+        final totalSales = (data['total_sales'] as num?)?.toInt() ?? 0;
+        final paidSales = (data['paid_sales'] as num?)?.toInt() ?? 0;
+        final creditSales = (data['credit_sales'] as num?)?.toInt() ?? 0;
+        final avgPrice = (data['avg_price_per_egg'] as num?)?.toDouble() ?? 0.0;
+        final buyerBreakdown = data['buyer_breakdown'] as List<dynamic>? ?? [];
 
         final settings = ref.watch(settingsProvider);
 
@@ -716,7 +514,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       child: _buildStatBox(
                         context,
                         'Paid Revenue',
-                        CurrencyFormatter.format(paidRevenue, symbol: settings.currencySymbol),
+                        CurrencyFormatter.format(paidRevenue,
+                            symbol: settings.currencySymbol),
                         AppColors.success,
                       ),
                     ),
@@ -729,7 +528,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       child: _buildStatBox(
                         context,
                         'Credit Amount',
-                        CurrencyFormatter.format(creditAmount, symbol: settings.currencySymbol),
+                        CurrencyFormatter.format(creditAmount,
+                            symbol: settings.currencySymbol),
                         AppColors.warning,
                       ),
                     ),
@@ -738,7 +538,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       child: _buildStatBox(
                         context,
                         'Avg Price',
-                        CurrencyFormatter.format(avgPrice, symbol: settings.currencySymbol),
+                        CurrencyFormatter.format(avgPrice,
+                            symbol: settings.currencySymbol),
                         AppColors.accentBlue,
                       ),
                     ),
@@ -789,17 +590,21 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                   ...buyerBreakdown.take(3).map((buyer) {
                     final name = buyer['buyer'] as String? ?? 'Unknown';
                     final qty = buyer['quantity'] as int? ?? 0;
-                    final revenue = buyer['revenue'] as double? ?? 0.0;
+                    final revenue =
+                        (buyer['revenue'] as num?)?.toDouble() ?? 0.0;
                     return ListTile(
                       dense: true,
                       leading: CircleAvatar(
                         radius: 16,
-                        child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?'),
+                        child:
+                            Text(name.isNotEmpty ? name[0].toUpperCase() : '?'),
                       ),
                       title: Text(name, style: const TextStyle(fontSize: 14)),
-                      subtitle: Text('$qty eggs', style: const TextStyle(fontSize: 12)),
+                      subtitle: Text('$qty eggs',
+                          style: const TextStyle(fontSize: 12)),
                       trailing: Text(
-                        CurrencyFormatter.format(revenue, symbol: settings.currencySymbol),
+                        CurrencyFormatter.format(revenue,
+                            symbol: settings.currencySymbol),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.success,
@@ -850,14 +655,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           'Mortality Analysis',
           Icons.trending_down,
           AppColors.error,
-          () {},
+          () => _showMortalityAnalysis(context),
         ),
         _buildReportTile(
           context,
           'Sales Summary',
           Icons.attach_money,
           AppColors.success,
-          () {},
+          () => _showSalesSummary(context),
         ),
         _buildReportTile(
           context,
@@ -914,6 +719,375 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     }
   }
 
+  void _showMortalityAnalysis(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) {
+          return FutureBuilder<Map<String, dynamic>>(
+            future: DatabaseHelper.instance.getMortalityAnalysis(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final data = snapshot.data!;
+              final flockMortality = data['flock_mortality'] as List<dynamic>;
+              final totalDeaths = data['total_deaths'] as int;
+              // final totalInitial = data['total_initial'] as int; // Available if needed
+              final mortalityRate = data['mortality_rate'] as double;
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Mortality Analysis',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Total Deaths',
+                            '$totalDeaths',
+                            AppColors.error,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Mortality Rate',
+                            '${mortalityRate.toStringAsFixed(1)}%',
+                            AppColors.warning,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'By Flock',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: flockMortality.isEmpty
+                          ? const EmptyState(
+                              icon: Icons.check_circle,
+                              title: 'No Mortality Records',
+                              subtitle: 'All flocks are healthy!',
+                            )
+                          : ListView.builder(
+                              controller: scrollController,
+                              itemCount: flockMortality.length,
+                              itemBuilder: (context, index) {
+                                final flock = flockMortality[index];
+                                final deaths =
+                                    (flock['total_deaths'] as num?)?.toInt() ??
+                                        0;
+                                final initial =
+                                    (flock['initial_count'] as num?)?.toInt() ??
+                                        0;
+                                final rate = initial > 0
+                                    ? (deaths / initial) * 100
+                                    : 0.0;
+
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: deaths > 0
+                                          ? AppColors.error
+                                          : AppColors.success,
+                                      child: Icon(
+                                        deaths > 0
+                                            ? Icons.trending_down
+                                            : Icons.check,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    title: Text(
+                                        flock['breed'] as String? ?? 'Unknown'),
+                                    subtitle: Text('Initial: $initial birds'),
+                                    trailing: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '$deaths deaths',
+                                          style: TextStyle(
+                                            color: deaths > 0
+                                                ? AppColors.error
+                                                : null,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${rate.toStringAsFixed(1)}%',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _showSalesSummary(BuildContext context) {
+    final settings = ref.read(settingsProvider);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) {
+          return FutureBuilder<Map<String, dynamic>>(
+            future: DatabaseHelper.instance.getSalesSummary(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: AppColors.error, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error loading sales data',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          '${snapshot.error}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final data = snapshot.data!;
+              final totalEggs = (data['total_eggs_sold'] as num?)?.toInt() ?? 0;
+              final totalRevenue =
+                  (data['total_revenue'] as num?)?.toDouble() ?? 0.0;
+              final deliveredOrders =
+                  (data['delivered_orders'] as num?)?.toInt() ?? 0;
+              final pendingOrders =
+                  (data['pending_orders'] as num?)?.toInt() ?? 0;
+              final topBuyers = data['top_buyers'] as List<dynamic>;
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Sales Summary',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Total Eggs',
+                            '$totalEggs',
+                            AppColors.primaryGreen,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Revenue',
+                            CurrencyFormatter.format(totalRevenue,
+                                symbol: settings.currencySymbol),
+                            AppColors.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Delivered',
+                            '$deliveredOrders',
+                            AppColors.success,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Pending',
+                            '$pendingOrders',
+                            AppColors.warning,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (topBuyers.isNotEmpty) ...[
+                      Text(
+                        'Top Buyers',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView.builder(
+                          controller: scrollController,
+                          itemCount: topBuyers.length,
+                          itemBuilder: (context, index) {
+                            final buyer = topBuyers[index];
+                            final name = buyer['buyer'] as String? ?? 'Unknown';
+                            final qty =
+                                (buyer['total_quantity'] as num?)?.toInt() ?? 0;
+                            final revenue =
+                                (buyer['total_revenue'] as num?)?.toDouble() ??
+                                    0.0;
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  child: Text(name.isNotEmpty
+                                      ? name[0].toUpperCase()
+                                      : '?'),
+                                ),
+                                title: Text(name),
+                                subtitle: Text('$qty eggs'),
+                                trailing: Text(
+                                  CurrencyFormatter.format(revenue,
+                                      symbol: settings.currencySymbol),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.success,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ] else ...[
+                      const Expanded(
+                        child: EmptyState(
+                          icon: Icons.people_outline,
+                          title: 'No Buyers Yet',
+                          subtitle:
+                              'Start creating orders to see buyer analytics',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStatCard(
+      BuildContext context, String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color.withValues(alpha: 0.8),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showExportDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -926,20 +1100,72 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               title: const Text('Export as PDF'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement PDF export
+                _showExportNotImplemented(context, 'PDF export coming soon!');
               },
             ),
             ListTile(
               leading: const Icon(Icons.table_chart),
               title: const Text('Export as CSV'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implement CSV export
-              },
+              onTap: () => _handleCSVExport(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.backup),
+              title: const Text('Backup All Data (JSON)'),
+              onTap: () => _handleJSONExport(context),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _showExportNotImplemented(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Coming Soon'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleCSVExport(BuildContext context) async {
+    Navigator.pop(context);
+    try {
+      final filePath = await DataExportService.exportToCSV();
+      if (context.mounted) {
+        await DataExportService.shareExportFile(filePath);
+      }
+    } catch (e) {
+      await logError('CSV export failed', error: e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleJSONExport(BuildContext context) async {
+    Navigator.pop(context);
+    try {
+      final filePath = await DataExportService.exportAllData();
+      if (context.mounted) {
+        await DataExportService.shareExportFile(filePath);
+      }
+    } catch (e) {
+      await logError('JSON backup failed', error: e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Backup failed: $e')),
+        );
+      }
+    }
   }
 }

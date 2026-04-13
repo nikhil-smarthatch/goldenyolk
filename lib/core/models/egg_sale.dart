@@ -8,6 +8,8 @@ class EggSale {
   final String status; // 'ordered', 'delivered', 'cancelled'
   final String? notes;
   final DateTime createdAt;
+  final double amountPaid;
+  final String paymentStatus; // 'unpaid', 'partial', 'paid'
 
   EggSale({
     this.id,
@@ -19,6 +21,8 @@ class EggSale {
     this.status = 'ordered',
     this.notes,
     DateTime? createdAt,
+    this.amountPaid = 0.0,
+    this.paymentStatus = 'unpaid',
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
@@ -32,6 +36,8 @@ class EggSale {
       'status': status,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
+      'amount_paid': amountPaid,
+      'payment_status': paymentStatus,
     };
   }
 
@@ -46,10 +52,15 @@ class EggSale {
       status: map['status'] as String,
       notes: map['notes'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
+      amountPaid: (map['amount_paid'] as num?)?.toDouble() ?? 0.0,
+      paymentStatus: map['payment_status'] as String? ?? 'unpaid',
     );
   }
 
   double get totalAmount => quantity * pricePerUnit;
+  double get balanceDue => totalAmount - amountPaid;
+  bool get isFullyPaid => paymentStatus == 'paid' || amountPaid >= totalAmount;
+  bool get hasPartialPayment => paymentStatus == 'partial' || (amountPaid > 0 && amountPaid < totalAmount);
 
   bool get isDelivered => status == 'delivered';
   bool get isOrdered => status == 'ordered';
@@ -65,6 +76,8 @@ class EggSale {
     String? status,
     String? notes,
     DateTime? createdAt,
+    double? amountPaid,
+    String? paymentStatus,
   }) {
     return EggSale(
       id: id ?? this.id,
@@ -76,6 +89,8 @@ class EggSale {
       status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+      amountPaid: amountPaid ?? this.amountPaid,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
     );
   }
 }

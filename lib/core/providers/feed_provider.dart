@@ -3,14 +3,14 @@ import '../database/db_helper.dart';
 import '../models/models.dart';
 
 final feedPurchasesProvider = StateNotifierProvider<FeedPurchasesNotifier, AsyncValue<List<FeedPurchase>>>((ref) {
-  return FeedPurchasesNotifier();
+  return FeedPurchasesNotifier(ref);
 });
 
 final feedUsageProvider = StateNotifierProvider.family<FeedUsageNotifier, AsyncValue<List<FeedUsage>>, int>((ref, flockId) {
-  return FeedUsageNotifier(flockId);
+  return FeedUsageNotifier(flockId, ref);
 });
 
-final currentStockProvider = FutureProvider<double>((ref) async {
+final currentStockProvider = FutureProvider.autoDispose<double>((ref) async {
   final db = DatabaseHelper.instance;
   final purchased = await db.getTotalFeedPurchased();
   final used = await db.getTotalFeedUsed();
@@ -19,8 +19,9 @@ final currentStockProvider = FutureProvider<double>((ref) async {
 
 class FeedPurchasesNotifier extends StateNotifier<AsyncValue<List<FeedPurchase>>> {
   final DatabaseHelper _db = DatabaseHelper.instance;
+  final Ref _ref;
 
-  FeedPurchasesNotifier() : super(const AsyncValue.loading()) {
+  FeedPurchasesNotifier(this._ref) : super(const AsyncValue.loading()) {
     loadPurchases();
   }
 
@@ -38,6 +39,7 @@ class FeedPurchasesNotifier extends StateNotifier<AsyncValue<List<FeedPurchase>>
     try {
       await _db.insertFeedPurchase(purchase);
       await loadPurchases();
+      _ref.invalidate(currentStockProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -47,6 +49,7 @@ class FeedPurchasesNotifier extends StateNotifier<AsyncValue<List<FeedPurchase>>
     try {
       await _db.updateFeedPurchase(purchase);
       await loadPurchases();
+      _ref.invalidate(currentStockProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -56,6 +59,7 @@ class FeedPurchasesNotifier extends StateNotifier<AsyncValue<List<FeedPurchase>>
     try {
       await _db.deleteFeedPurchase(id);
       await loadPurchases();
+      _ref.invalidate(currentStockProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -65,8 +69,9 @@ class FeedPurchasesNotifier extends StateNotifier<AsyncValue<List<FeedPurchase>>
 class FeedUsageNotifier extends StateNotifier<AsyncValue<List<FeedUsage>>> {
   final DatabaseHelper _db = DatabaseHelper.instance;
   final int flockId;
+  final Ref _ref;
 
-  FeedUsageNotifier(this.flockId) : super(const AsyncValue.loading()) {
+  FeedUsageNotifier(this.flockId, this._ref) : super(const AsyncValue.loading()) {
     loadUsage();
   }
 
@@ -84,6 +89,7 @@ class FeedUsageNotifier extends StateNotifier<AsyncValue<List<FeedUsage>>> {
     try {
       await _db.insertFeedUsage(usage);
       await loadUsage();
+      _ref.invalidate(currentStockProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -93,6 +99,7 @@ class FeedUsageNotifier extends StateNotifier<AsyncValue<List<FeedUsage>>> {
     try {
       await _db.updateFeedUsage(usage);
       await loadUsage();
+      _ref.invalidate(currentStockProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -102,6 +109,7 @@ class FeedUsageNotifier extends StateNotifier<AsyncValue<List<FeedUsage>>> {
     try {
       await _db.deleteFeedUsage(id);
       await loadUsage();
+      _ref.invalidate(currentStockProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

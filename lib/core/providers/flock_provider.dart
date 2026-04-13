@@ -16,7 +16,7 @@ final flockByIdProvider = Provider.family<AsyncValue<Flock?>, int>((ref, id) {
 });
 
 // Provider to calculate total live chickens across all flocks
-final totalLiveChickensProvider = FutureProvider<int>((ref) async {
+final totalLiveChickensProvider = FutureProvider.autoDispose<int>((ref) async {
   final db = DatabaseHelper.instance;
   final flocks = await db.getAllFlocks();
   
@@ -126,6 +126,7 @@ class MortalityNotifier extends StateNotifier<AsyncValue<List<MortalityLog>>> {
       await _db.insertMortality(mortality);
       await loadMortalities();
       _ref.invalidate(flockProvider);
+      _ref.invalidate(totalLiveChickensProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -136,6 +137,7 @@ class MortalityNotifier extends StateNotifier<AsyncValue<List<MortalityLog>>> {
       await _db.updateMortality(mortality);
       await loadMortalities();
       _ref.invalidate(flockProvider);
+      _ref.invalidate(totalLiveChickensProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -146,6 +148,7 @@ class MortalityNotifier extends StateNotifier<AsyncValue<List<MortalityLog>>> {
       await _db.deleteMortality(id);
       await loadMortalities();
       _ref.invalidate(flockProvider);
+      _ref.invalidate(totalLiveChickensProvider);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

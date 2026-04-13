@@ -7,7 +7,6 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/app_colors.dart';
 import '../../widgets/widgets.dart';
 import '../eggs/eggs_screen.dart';
-import '../sales/add_egg_sale_screen.dart';
 import '../sales/sales_screen.dart';
 import '../feed/feed_screen.dart';
 import '../flock/flock_screen.dart';
@@ -103,11 +102,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               SliverToBoxAdapter(
                 child: _buildQuickActions(context),
               ),
-              // ── Alerts ──
+              // ── Pending Orders ──
               SliverToBoxAdapter(
-                child: _buildAlertsSection(
-                    context, totalLiveChickensAsync, stockAsync,
-                    settings.lowStockThreshold),
+                child: _buildPendingOrdersSection(context, ref),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -266,11 +263,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 ),
                 const SizedBox(width: 12),
                 todayEggs.when(
-                  data: (eggs) => _statCard(
-                      context, '🥚', 'Eggs Today',
-                      NumberFormatter.format(eggs['good'] as int? ?? 0),
-                      const Color(0xFFFFFDE7), const Color(0xFFF57F17),
-                      subtitle: '${eggs['broken'] ?? 0} broken'),
+                  data: (eggs) => remainingStock.when(
+                    data: (stock) => _statCard(
+                        context, '🥚', 'Eggs Today',
+                        NumberFormatter.format(eggs['good'] as int? ?? 0),
+                        const Color(0xFFFFFDE7), const Color(0xFFF57F17),
+                        subtitle: '$stock remaining'),
+                    loading: () => _statCard(
+                        context, '🥚', 'Eggs Today',
+                        NumberFormatter.format(eggs['good'] as int? ?? 0),
+                        const Color(0xFFFFFDE7), const Color(0xFFF57F17),
+                        subtitle: '${eggs['broken'] ?? 0} broken'),
+                    error: (_, __) => _statCard(
+                        context, '🥚', 'Eggs Today',
+                        NumberFormatter.format(eggs['good'] as int? ?? 0),
+                        const Color(0xFFFFFDE7), const Color(0xFFF57F17),
+                        subtitle: '${eggs['broken'] ?? 0} broken'),
+                  ),
                   loading: () => _statCardShimmer(),
                   error: (_, __) => _statCard(context, '🥚', 'Eggs Today',
                       '—', const Color(0xFFFFFDE7), const Color(0xFFF57F17)),
@@ -393,7 +402,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle(context, 'Manage Your Farm', 'Sell all >'),
+          _sectionTitle(context, 'Manage Your Farm', null),
           const SizedBox(height: 14),
           GridView.count(
             shrinkWrap: true,
@@ -757,18 +766,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     MaterialPageRoute(builder: (_) => const ReportsScreen())),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _quickActionButton(
-                  context,
-                  emoji: '➕',
-                  label: 'New Sale',
-                  bgColor: const Color(0xFFE8F5E9),
-                  textColor: const Color(0xFF2E7D32),
-                  onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const AddEggSaleScreen())),
-                ),
-              ),
             ],
           ),
         ],
@@ -811,80 +808,176 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  // ─── Alerts ────────────────────────────────────────────────────────────────
-  Widget _buildAlertsSection(
-    BuildContext context,
-    AsyncValue<int> totalLiveChickensAsync,
-    AsyncValue<double> stockAsync,
-    double lowStockThreshold,
-  ) {
-    final List<Widget> alerts = [];
-    stockAsync.whenData((stock) {
-      if (stock < lowStockThreshold) {
-        alerts.add(_alertCard(
-          context,
-          emoji: '⚠️',
-          title: 'Low Feed Stock',
-          message:
-              'Only ${stock.toStringAsFixed(1)} kg remaining. Purchase more feed.',
-          color: const Color(0xFFFFF8E1),
-          borderColor: const Color(0xFFF57F17),
-          textColor: const Color(0xFFE65100),
-        ));
-      }
-    });
-
-    if (alerts.isEmpty) return const SizedBox.shrink();
+  // ─── Pending Orders Section ───────────────────────────────────────────────
+  Widget _buildPendingOrdersSection(BuildContext context, WidgetRef ref) {
+    final pendingOrders = ref.watch(pendingOrdersProvider);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle(context, 'Alerts', null),
-          const SizedBox(height: 10),
-          ...alerts,
-        ],
-      ),
-    );
-  }
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Pending Orders',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1B5E20),
+                  fontFamily: 'Inter',
+                ),
+              ),
+              pendingOrders.when(
+                data: (orders) => orders.isNotEmpty
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFA000).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${orders.length} orders',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFE65100),
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          pendingOrders.when(
+            data: (orders) {
+              if (orders.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Column(
+                      children: [
+                        Text('📋', style: TextStyle(fontSize: 32)),
+                        SizedBox(height: 8),
+                        Text(
+                          'No pending orders',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'All orders have been delivered!',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
 
-  Widget _alertCard(BuildContext context,
-      {required String emoji,
-      required String title,
-      required String message,
-      required Color color,
-      required Color borderColor,
-      required Color textColor}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: textColor,
-                        fontFamily: 'Inter')),
-                const SizedBox(height: 2),
-                Text(message,
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: textColor.withValues(alpha: 0.8),
-                        fontFamily: 'Inter')),
-              ],
-            ),
+              return Column(
+                children: orders.take(5).map((order) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3E0),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Center(
+                            child: Text('📦', style: TextStyle(fontSize: 20)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                order.buyer ?? 'Unknown Buyer',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1B5E20),
+                                  fontFamily: 'Inter',
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${order.quantity} eggs • ${DateHelpers.formatCompact(order.orderDate)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () async {
+                            await ref.read(eggSalesProvider.notifier).markAsDelivered(order.id!);
+                          },
+                          icon: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F5E9),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.local_shipping,
+                              color: Color(0xFF2E7D32),
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+            loading: () => const LoadingShimmer(height: 120),
+            error: (_, __) => const Center(child: Text('Error loading orders')),
           ),
         ],
       ),

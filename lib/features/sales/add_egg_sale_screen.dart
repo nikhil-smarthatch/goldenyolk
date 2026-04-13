@@ -141,7 +141,7 @@ class _AddEggSaleScreenState extends ConsumerState<AddEggSaleScreen> {
                 label: 'Order Date',
                 initialDate: _orderDate,
                 onDateSelected: (date) => setState(() => _orderDate = date),
-                validator: (date) => Validators.dateNotInFuture(date),
+                allowFuture: true, // FIX: allow future orders
               ),
               const SizedBox(height: 16),
               TextFormField(

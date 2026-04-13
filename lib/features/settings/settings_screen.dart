@@ -8,6 +8,7 @@ import '../../core/database/db_helper.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/utils/app_colors.dart';
+import '../sync/sync_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -90,6 +91,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: _isImporting ? null : () => _importData(context),
           ),
           const Divider(),
+          _buildSectionHeader(context, 'Device Sync'),
+          ListTile(
+            leading: const Icon(Icons.bluetooth),
+            title: const Text('Bluetooth Sync'),
+            subtitle: const Text('Sync data with nearby Golden Yolk devices'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SyncScreen()),
+            ),
+          ),
+          const Divider(),
           _buildSectionHeader(context, 'About'),
           const ListTile(
             leading: Icon(Icons.info),
@@ -170,15 +183,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final content = await file.readAsString();
       final data = jsonDecode(content) as Map<String, dynamic>;
 
-      // Validate data structure
+      // Validate data structure - only required tables are mandatory
       final requiredTables = [
         'flocks', 'mortality_log', 'egg_collection', 'egg_sales',
-        'chicken_sales', 'feed_purchases', 'feed_usage', 'expenses'
+        'feed_purchases', 'feed_usage', 'expenses'
+      ];
+      
+      // Optional tables for backward compatibility
+      final optionalTables = [
+        'customer_pricing', 'sync_log', 'payment_history'
       ];
 
       for (final table in requiredTables) {
         if (!data.containsKey(table) || data[table] is! List) {
           throw FormatException('Invalid backup file: missing $table');
+        }
+      }
+      
+      // Initialize optional tables as empty if not present
+      for (final table in optionalTables) {
+        if (!data.containsKey(table)) {
+          data[table] = [];
         }
       }
 
