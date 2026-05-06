@@ -66,4 +66,31 @@ class Flock {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  /// Firestore serialization
+  Map<String, dynamic> toFirestore() {
+    return {
+      'name': name,
+      'breed': breed,
+      'initial_count': initialCount,
+      'date_acquired': dateAcquired.toIso8601String(),
+      'purpose': purpose,
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  factory Flock.fromFirestore(Map<String, dynamic> data, String documentId) {
+    return Flock(
+      id: int.tryParse(documentId),
+      name: data['name'] as String,
+      breed: data['breed'] as String,
+      initialCount: data['initial_count'] as int,
+      dateAcquired: DateTime.parse(data['date_acquired'] as String),
+      purpose: data['purpose'] as String,
+      notes: data['notes'] as String?,
+      createdAt: DateTime.parse(data['created_at'] as String),
+    );
+  }
 }

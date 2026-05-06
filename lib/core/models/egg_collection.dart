@@ -62,4 +62,30 @@ class EggCollection {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  /// Firestore serialization
+  Map<String, dynamic> toFirestore() {
+    return {
+      'flock_id': flockId,
+      'date': date.toIso8601String(),
+      'collected': collected,
+      'broken': broken,
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  factory EggCollection.fromFirestore(
+      Map<String, dynamic> data, String documentId) {
+    return EggCollection(
+      id: int.tryParse(documentId),
+      flockId: data['flock_id'] as int,
+      date: DateTime.parse(data['date'] as String),
+      collected: data['collected'] as int,
+      broken: data['broken'] as int,
+      notes: data['notes'] as String?,
+      createdAt: DateTime.parse(data['created_at'] as String),
+    );
+  }
 }

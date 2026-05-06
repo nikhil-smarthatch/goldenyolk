@@ -45,7 +45,9 @@ class EggSale {
     return EggSale(
       id: map['id'] as int?,
       orderDate: DateTime.parse(map['order_date'] as String),
-      deliveryDate: map['delivery_date'] != null ? DateTime.parse(map['delivery_date'] as String) : null,
+      deliveryDate: map['delivery_date'] != null
+          ? DateTime.parse(map['delivery_date'] as String)
+          : null,
       quantity: map['quantity'] as int,
       pricePerUnit: map['price_per_unit'] as double,
       buyer: map['buyer'] as String?,
@@ -60,7 +62,9 @@ class EggSale {
   double get totalAmount => quantity * pricePerUnit;
   double get balanceDue => totalAmount - amountPaid;
   bool get isFullyPaid => paymentStatus == 'paid' || amountPaid >= totalAmount;
-  bool get hasPartialPayment => paymentStatus == 'partial' || (amountPaid > 0 && amountPaid < totalAmount);
+  bool get hasPartialPayment =>
+      paymentStatus == 'partial' ||
+      (amountPaid > 0 && amountPaid < totalAmount);
 
   bool get isDelivered => status == 'delivered';
   bool get isOrdered => status == 'ordered';
@@ -91,6 +95,41 @@ class EggSale {
       createdAt: createdAt ?? this.createdAt,
       amountPaid: amountPaid ?? this.amountPaid,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+    );
+  }
+
+  /// Firestore serialization
+  Map<String, dynamic> toFirestore() {
+    return {
+      'order_date': orderDate.toIso8601String(),
+      'delivery_date': deliveryDate?.toIso8601String(),
+      'quantity': quantity,
+      'price_per_unit': pricePerUnit,
+      'buyer': buyer,
+      'status': status,
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'amount_paid': amountPaid,
+      'payment_status': paymentStatus,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  factory EggSale.fromFirestore(Map<String, dynamic> data, String documentId) {
+    return EggSale(
+      id: int.tryParse(documentId),
+      orderDate: DateTime.parse(data['order_date'] as String),
+      deliveryDate: data['delivery_date'] != null
+          ? DateTime.parse(data['delivery_date'] as String)
+          : null,
+      quantity: data['quantity'] as int,
+      pricePerUnit: (data['price_per_unit'] as num).toDouble(),
+      buyer: data['buyer'] as String?,
+      status: data['status'] as String,
+      notes: data['notes'] as String?,
+      createdAt: DateTime.parse(data['created_at'] as String),
+      amountPaid: (data['amount_paid'] as num?)?.toDouble() ?? 0.0,
+      paymentStatus: data['payment_status'] as String? ?? 'unpaid',
     );
   }
 }

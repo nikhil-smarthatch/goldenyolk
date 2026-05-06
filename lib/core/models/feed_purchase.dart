@@ -68,4 +68,32 @@ class FeedPurchase {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  /// Firestore serialization
+  Map<String, dynamic> toFirestore() {
+    return {
+      'date': date.toIso8601String(),
+      'feed_type': feedType,
+      'quantity_kg': quantityKg,
+      'price_per_unit': pricePerUnit,
+      'supplier': supplier,
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  factory FeedPurchase.fromFirestore(
+      Map<String, dynamic> data, String documentId) {
+    return FeedPurchase(
+      id: int.tryParse(documentId),
+      date: DateTime.parse(data['date'] as String),
+      feedType: data['feed_type'] as String,
+      quantityKg: (data['quantity_kg'] as num).toDouble(),
+      pricePerUnit: (data['price_per_unit'] as num).toDouble(),
+      supplier: data['supplier'] as String?,
+      notes: data['notes'] as String?,
+      createdAt: DateTime.parse(data['created_at'] as String),
+    );
+  }
 }

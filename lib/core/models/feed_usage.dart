@@ -54,4 +54,28 @@ class FeedUsage {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  /// Firestore serialization
+  Map<String, dynamic> toFirestore() {
+    return {
+      'flock_id': flockId,
+      'date': date.toIso8601String(),
+      'quantity_kg': quantityKg,
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  factory FeedUsage.fromFirestore(
+      Map<String, dynamic> data, String documentId) {
+    return FeedUsage(
+      id: int.tryParse(documentId),
+      flockId: data['flock_id'] as int,
+      date: DateTime.parse(data['date'] as String),
+      quantityKg: (data['quantity_kg'] as num).toDouble(),
+      notes: data['notes'] as String?,
+      createdAt: DateTime.parse(data['created_at'] as String),
+    );
+  }
 }

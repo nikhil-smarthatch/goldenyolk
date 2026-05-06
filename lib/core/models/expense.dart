@@ -60,4 +60,29 @@ class Expense {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  /// Firestore serialization
+  Map<String, dynamic> toFirestore() {
+    return {
+      'date': date.toIso8601String(),
+      'category': category,
+      'description': description,
+      'amount': amount,
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  factory Expense.fromFirestore(Map<String, dynamic> data, String documentId) {
+    return Expense(
+      id: int.tryParse(documentId),
+      date: DateTime.parse(data['date'] as String),
+      category: data['category'] as String,
+      description: data['description'] as String,
+      amount: (data['amount'] as num).toDouble(),
+      notes: data['notes'] as String?,
+      createdAt: DateTime.parse(data['created_at'] as String),
+    );
+  }
 }

@@ -60,4 +60,30 @@ class MortalityLog {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  /// Firestore serialization
+  Map<String, dynamic> toFirestore() {
+    return {
+      'flock_id': flockId,
+      'date': date.toIso8601String(),
+      'count': count,
+      'reason': reason,
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  factory MortalityLog.fromFirestore(
+      Map<String, dynamic> data, String documentId) {
+    return MortalityLog(
+      id: int.tryParse(documentId),
+      flockId: data['flock_id'] as int,
+      date: DateTime.parse(data['date'] as String),
+      count: data['count'] as int,
+      reason: data['reason'] as String,
+      notes: data['notes'] as String?,
+      createdAt: DateTime.parse(data['created_at'] as String),
+    );
+  }
 }
